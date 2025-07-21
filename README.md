@@ -1,2 +1,3 @@
 # vyapari
- Personal Retail Tracker for Purchase/Sale/Margin
+
+Personal Retail Tracker for Purchase/Sale/Margin
