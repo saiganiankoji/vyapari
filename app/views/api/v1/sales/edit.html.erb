@@ -1,0 +1,1189 @@
+<!-- app/views/api/v1/sales/edit.html.erb - WITH STEP FLOW LIKE NEW.HTML.ERB -->
+<style>
+  [v-cloak] { display: none; }
+  
+  .confirm-section {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+    border: 2px solid #ffc107;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .warning-banner {
+    background: linear-gradient(135deg, #f8d7da 0%, #f1b0b7 100%);
+    border: 2px solid #dc3545;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .smart-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fafafa;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-family: 'Roboto', sans-serif;
+  }
+  
+  .smart-loader.show {
+    display: flex;
+  }
+  
+  .loader-content {
+    text-align: center;
+    animation: fadeInUp 0.3s ease-out;
+  }
+  
+  .loader-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border: 3px solid #e3f2fd;
+    border-top: 3px solid #1976d2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<!-- Smart loader -->
+<div id="smart-loader" class="smart-loader">
+  <div class="loader-content">
+    <div class="loader-icon"></div>
+    <div class="loader-title">Loading Sale Data...</div>
+    <div class="loader-message">Preparing edit form</div>
+  </div>
+</div>
+
+<div id="app" v-cloak>
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Sale"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="edit" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Edit Sale</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Loading State -->
+        <div v-if="loading" class="text-center q-pa-xl">
+          <q-spinner-grid size="50px" color="primary"></q-spinner-grid>
+          <div class="q-mt-md text-h6">Loading sale data...</div>
+        </div>
+
+        <!-- Cannot Edit - Confirmed Sale -->
+        <div v-else-if="!saleData.can_edit" class="row justify-center">
+          <div class="col-12 col-md-8">
+            <div class="warning-banner text-center">
+              <q-icon name="lock" size="xl" color="red"></q-icon>
+              <div class="text-h5 q-mt-sm text-red">Cannot Edit Confirmed Sale</div>
+              <div class="text-subtitle1 q-mt-sm">
+                This sale has been confirmed and inventory has been deducted.<br>
+                You can only add payments now.
+              </div>
+              
+              <div class="row justify-center q-gutter-md q-mt-lg">
+                <q-btn
+                  v-if="saleData.due_amount > 0"
+                  color="green"
+                  icon="payment"
+                  label="Add Payment"
+                  @click="addPayment"
+                  size="lg"
+                ></q-btn>
+                <q-btn
+                  color="primary"
+                  icon="visibility"
+                  label="View Sale Details"
+                  @click="goBack"
+                  outline
+                ></q-btn>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Form - Draft Sale Only -->
+        <div v-else class="row justify-center">
+          <div class="col-12 col-xl-10">
+            
+            <!-- Step Indicator -->
+            <q-card class="q-mb-md">
+              <q-card-section>
+                <q-stepper v-model="currentStep" flat class="no-shadow">
+                  <q-step :name="1" title="Edit Sale Details" icon="edit" :done="currentStep > 1">
+                    Modify customer and item details
+                  </q-step>
+                  <q-step :name="2" title="Confirm Changes" icon="inventory" :done="saleConfirmed">
+                    Review and confirm to update inventory
+                  </q-step>
+                  <q-step :name="3" title="Add Payments" icon="payment" :done="false">
+                    Record payments received
+                  </q-step>
+                </q-stepper>
+              </q-card-section>
+            </q-card>
+
+            <!-- Step 1: Edit Form -->
+            <div v-if="currentStep === 1">
+              <q-form @submit="updateDraft" class="q-gutter-md">
+                
+                <!-- Sale Header Info -->
+                <q-card class="q-mb-md">
+                  <q-card-section>
+                    <div class="row items-center justify-between">
+                      <div>
+                        <div class="text-h5 text-primary">{{ saleData.invoice_number }}</div>
+                        <div class="text-subtitle1 text-grey-7">Edit Draft Sale</div>
+                      </div>
+                      <q-badge color="orange" label="DRAFT" class="q-pa-sm"></q-badge>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Customer Information Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="person" class="q-mr-sm text-primary"></q-icon>
+                      Customer Information
+                    </div>
+                    
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model="saleForm.customer_name"
+                          filled
+                          label="Customer Name *"
+                          :rules="[val => !!val || 'Customer name is required']"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model="saleForm.customer_phone"
+                          filled
+                          label="Phone Number"
+                          type="tel"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model="saleForm.customer_gst_number"
+                          filled
+                          label="GST Number"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <!-- Empty space for alignment -->
+                      </div>
+                      <div class="col-12">
+                        <q-input
+                          v-model="saleForm.customer_address"
+                          filled
+                          type="textarea"
+                          label="Customer Address"
+                          rows="3"
+                        ></q-input>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Information Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="business" class="q-mr-sm text-primary"></q-icon>
+                      Sale Information
+                    </div>
+                    
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-4">
+                        <q-select
+                          v-model="saleForm.branch_id"
+                          filled
+                          label="Branch *"
+                          :options="branchOptions"
+                          option-value="id"
+                          option-label="name"
+                          emit-value
+                          map-options
+                          :rules="[val => !!val || 'Branch is required']"
+                          @update:model-value="onBranchChange"
+                        ></q-select>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-input
+                          v-model="saleForm.sale_date"
+                          filled
+                          label="Sale Date *"
+                          type="date"
+                          :rules="[val => !!val || 'Sale date is required']"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-input
+                          v-model="saleForm.due_date"
+                          filled
+                          label="Due Date"
+                          type="date"
+                          :min="saleForm.sale_date"
+                        ></q-input>
+                      </div>
+                      <div class="col-12">
+                        <q-input
+                          v-model="saleForm.notes"
+                          filled
+                          type="textarea"
+                          label="Sale Notes"
+                          rows="2"
+                        ></q-input>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Items Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="row items-center justify-between q-mb-md">
+                      <div class="text-h6">
+                        <q-icon name="shopping_basket" class="q-mr-sm text-primary"></q-icon>
+                        Sale Items
+                      </div>
+                      <q-btn
+                        color="primary"
+                        icon="add"
+                        label="Add Item"
+                        @click="addSaleItem"
+                        outline
+                        :disable="!saleForm.branch_id"
+                      ></q-btn>
+                    </div>
+
+                    <q-table
+                      :rows="visibleSaleItems"
+                      :columns="itemColumns"
+                      row-key="temp_id"
+                      flat
+                      bordered
+                      :pagination="{ rowsPerPage: 0 }"
+                      hide-pagination
+                    >
+                      <template v-slot:body-cell-product="props">
+                        <q-td :props="props">
+                          <q-select
+                            v-model="props.row.product_sku_id"
+                            filled
+                            dense
+                            label="Select Product"
+                            :options="availableProductsForItem(props.rowIndex)"
+                            option-value="id"
+                            option-label="display_name"
+                            emit-value
+                            map-options
+                            clearable
+                            use-input
+                            @filter="filterProducts"
+                            @update:model-value="(val) => updateItemProduct(props.rowIndex, val)"
+                            :rules="[val => !!val || 'Product is required']"
+                            :loading="loadingProducts"
+                            :disable="!saleForm.branch_id"
+                          >
+                            <template v-slot:no-option>
+                              <q-item>
+                                <q-item-section class="text-grey">
+                                  {{ !saleForm.branch_id ? 'Select branch first' : 'No products found' }}
+                                </q-item-section>
+                              </q-item>
+                            </template>
+                          </q-select>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-quantity="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.quantity"
+                            filled
+                            dense
+                            type="number"
+                            min="1"
+                            :max="getMaxQuantityForItem(props.row)"
+                            step="1"
+                            @update:model-value="calculateItemTotal(props.rowIndex)"
+                            :rules="[
+                              val => val > 0 || 'Quantity must be greater than 0',
+                              val => val <= getMaxQuantityForItem(props.row) || `Only ${getMaxQuantityForItem(props.row)} units available in inventory`
+                            ]"
+                            style="min-width: 100px"
+                          >
+                            <template v-slot:hint>
+                              Available: {{ getDisplayedStock(props.row) }}
+                            </template>
+                          </q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-unit_price="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.unit_price"
+                            filled
+                            dense
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            prefix="₹"
+                            @update:model-value="calculateItemTotal(props.rowIndex)"
+                            :rules="[val => val >= 0 || 'Price must be 0 or greater']"
+                            style="min-width: 120px"
+                          ></q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-discount="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.discount_percentage"
+                            filled
+                            dense
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            suffix="%"
+                            @update:model-value="calculateItemTotal(props.rowIndex)"
+                            style="min-width: 100px"
+                          ></q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-total="props">
+                        <q-td :props="props">
+                          <div class="text-weight-bold text-positive">
+                            ₹{{ formatCurrency(props.row.calculated_total || 0) }}
+                          </div>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-actions="props">
+                        <q-td :props="props">
+                          <q-btn
+                            flat
+                            dense
+                            color="red"
+                            icon="delete"
+                            @click="removeSaleItem(props.rowIndex)"
+                            :disable="visibleSaleItems.length <= 1"
+                          ></q-btn>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:no-data>
+                        <div class="full-width row flex-center text-accent q-gutter-sm q-pa-lg">
+                          <span v-if="!saleForm.branch_id">Please select a branch first, then click "Add Item"</span>
+                          <span v-else>Click "Add Item" to start adding products</span>
+                        </div>
+                      </template>
+                    </q-table>
+
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Summary Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="calculate" class="q-mr-sm text-primary"></q-icon>
+                      Sale Summary
+                    </div>
+                    
+                    <div class="row">
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model.number="saleForm.discount_amount"
+                          filled
+                          label="Additional Discount Amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          prefix="₹"
+                          @update:model-value="calculateTotals"
+                          hint="Extra discount on total sale amount"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <div class="bg-grey-1 q-pa-md rounded-borders">
+                          <div class="row justify-between q-mb-sm">
+                            <span class="text-subtitle1">Subtotal:</span>
+                            <span class="text-subtitle1 text-weight-bold">₹{{ formatCurrency(calculatedSubtotal) }}</span>
+                          </div>
+                          <div class="row justify-between q-mb-sm">
+                            <span class="text-body2">Item Discounts:</span>
+                            <span class="text-body2 text-weight-bold">-₹{{ formatCurrency(calculatedItemDiscounts) }}</span>
+                          </div>
+                          <div class="row justify-between q-mb-sm">
+                            <span class="text-body2">Additional Discount:</span>
+                            <span class="text-body2 text-weight-bold">-₹{{ formatCurrency(saleForm.discount_amount || 0) }}</span>
+                          </div>
+                          <q-separator class="q-my-sm"></q-separator>
+                          <div class="row justify-between">
+                            <span class="text-h6 text-primary">Final Amount:</span>
+                            <span class="text-h6 text-weight-bold text-positive">₹{{ formatCurrency(calculatedFinalAmount) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Form Actions -->
+                <div class="row justify-end q-gutter-md q-mt-lg q-mb-xl">
+                  <q-btn
+                    color="grey"
+                    label="Cancel"
+                    @click="goBack"
+                    class="q-px-xl"
+                    outline
+                  ></q-btn>
+                  <q-btn
+                    color="primary"
+                    label="Update Draft Sale"
+                    type="submit"
+                    :loading="submitting"
+                    class="q-px-xl"
+                    :disable="!isFormValid"
+                  ></q-btn>
+                </div>
+
+              </q-form>
+            </div>
+
+            <!-- Step 2: Confirmation -->
+            <div v-if="currentStep === 2 && !saleConfirmed">
+              <div class="confirm-section">
+                <div class="text-center q-mb-md">
+                  <q-icon name="warning" size="xl" color="warning"></q-icon>
+                  <div class="text-h5 q-mt-sm">Confirm Updated Sale?</div>
+                  <div class="text-subtitle1 text-grey-7">
+                    This will update inventory and lock the sale for editing
+                  </div>
+                </div>
+
+                <!-- Sale Summary for Confirmation -->
+                <q-card class="q-mb-md">
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">Updated Sale Summary</div>
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-6">
+                        <div class="text-subtitle2">Customer: {{ saleForm.customer_name }}</div>
+                        <div class="text-subtitle2">Branch: {{ selectedBranchName }}</div>
+                        <div class="text-subtitle2">Invoice: {{ saleData.invoice_number }}</div>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <div class="text-subtitle2">Items: {{ visibleSaleItems.length }}</div>
+                        <div class="text-subtitle2">Final Amount: ₹{{ formatCurrency(calculatedFinalAmount) }}</div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Action Buttons -->
+                <div class="row justify-center q-gutter-md">
+                  <q-btn
+                    color="grey"
+                    label="Go Back to Edit"
+                    @click="currentStep = 1"
+                    outline
+                  ></q-btn>
+                  <q-btn
+                    color="green"
+                    label="Confirm Sale & Update Inventory"
+                    @click="confirmSale"
+                    :loading="confirming"
+                    size="lg"
+                  ></q-btn>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Payment Management -->
+            <div v-if="currentStep === 3 || saleConfirmed">
+              <q-card>
+                <q-card-section>
+                  <div class="text-center q-mb-md">
+                    <q-icon name="check_circle" size="xl" color="green"></q-icon>
+                    <div class="text-h5 text-green q-mt-sm">Sale Updated & Confirmed!</div>
+                    <div class="text-subtitle1 text-grey-7">
+                      Inventory has been updated. You can now manage payments.
+                    </div>
+                  </div>
+
+                  <div class="row justify-center q-gutter-md q-mt-lg">
+                    <q-btn
+                      color="green"
+                      icon="payment"
+                      label="Add Payment"
+                      @click="goToPayments"
+                      size="lg"
+                    ></q-btn>
+                    <q-btn
+                      color="primary"
+                      icon="visibility"
+                      label="View Sale Details"
+                      @click="viewSale"
+                      outline
+                    ></q-btn>
+                    <q-btn
+                      color="grey"
+                      icon="list"
+                      label="Back to Sales List"
+                      @click="goToSalesList"
+                      outline
+                    ></q-btn>
+                  </div>
+                </q-card-section>
+              </q-card>
+            </div>
+
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const saleId = '<%= params[:id] %>';
+  
+  // Smart loading logic
+  const smartLoader = document.getElementById('smart-loader');
+  const appContainer = document.getElementById('app');
+  
+  let loadingTimer = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.add('show');
+    }
+  }, 800);
+  
+  function hideLoader() {
+    if (loadingTimer) clearTimeout(loadingTimer);
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+  }
+  
+  const app = Vue.createApp({
+    data() {
+      return {
+        loading: true,
+        submitting: false,
+        confirming: false,
+        saleConfirmed: false,
+        loadingProducts: false,
+        currentStep: 1,
+        branchOptions: [],
+        productOptions: [],
+        filteredProducts: [],
+        tempIdCounter: 1000,
+        originalQuantities: {},
+        saleData: {
+          can_edit: false,
+          due_amount: 0,
+          invoice_number: ''
+        },
+        saleForm: {
+          id: null,
+          invoice_number: '',
+          customer_name: '',
+          customer_phone: '',
+          customer_address: '',
+          customer_gst_number: '',
+          branch_id: null,
+          sale_date: '',
+          due_date: '',
+          discount_amount: 0,
+          notes: '',
+          sale_items_attributes: []
+        },
+        itemColumns: [
+          { name: 'product', label: 'Product', align: 'left' },
+          { name: 'quantity', label: 'Qty', align: 'center' },
+          { name: 'unit_price', label: 'Unit Price', align: 'right' },
+          { name: 'discount', label: 'Discount %', align: 'center' },
+          { name: 'total', label: 'Total', align: 'right' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    computed: {
+      calculatedSubtotal() {
+        return this.visibleSaleItems.reduce((sum, item) => {
+          const quantity = parseFloat(item.quantity) || 0;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          return sum + (quantity * unitPrice);
+        }, 0);
+      },
+      calculatedItemDiscounts() {
+        return this.visibleSaleItems.reduce((sum, item) => {
+          const quantity = parseFloat(item.quantity) || 0;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          const discountPercentage = parseFloat(item.discount_percentage) || 0;
+          const itemSubtotal = quantity * unitPrice;
+          return sum + (itemSubtotal * discountPercentage / 100);
+        }, 0);
+      },
+      calculatedFinalAmount() {
+        const additionalDiscount = parseFloat(this.saleForm.discount_amount) || 0;
+        return Math.max(0, this.calculatedSubtotal - this.calculatedItemDiscounts - additionalDiscount);
+      },
+      visibleSaleItems() {
+        return this.saleForm.sale_items_attributes.filter(item => !item._destroy);
+      },
+      selectedBranchName() {
+        const branch = this.branchOptions.find(b => b.id === this.saleForm.branch_id);
+        return branch ? branch.name : '';
+      },
+      
+      isFormValid() {
+        return this.saleForm.customer_name &&
+               this.saleForm.branch_id &&
+               this.saleForm.sale_date &&
+               this.visibleSaleItems.length > 0 &&
+               this.visibleSaleItems.every(item => 
+                 item.product_sku_id && 
+                 item.quantity > 0 && 
+                 item.unit_price >= 0
+               );
+      }
+    },
+    mounted() {
+      hideLoader();
+      this.loadSaleData(); // Load sale data first, then options
+    },
+    methods: {
+      async loadFormOptions() {
+        try {
+          // For edit page, we might already have branch_id, so use it if available
+          const branchId = this.saleForm.branch_id || this.saleData.branch_id;
+          const params = new URLSearchParams();
+          
+          // Add branch_id if we have it to get available stock
+          if (branchId) {
+            params.append('branch_id', branchId);
+            console.log('Loading options with branch_id:', branchId);
+          }
+
+          const url = `/aruna_solar/api/v1/sales/options${params.toString() ? '?' + params.toString() : ''}`;
+          
+          const response = await fetch(url, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branchOptions = data.branches;
+            if (data.product_skus) {
+              this.productOptions = (data.product_skus || []).map(product => ({
+                ...product,
+                display_name: `${product.name} - ${product.code}${product.available_stock ? ` (${product.available_stock} available)` : ''}`
+              }));
+              this.filteredProducts = [...this.productOptions];
+              
+              console.log('Loaded products with stock info:', this.productOptions);
+            }
+          } else {
+            throw new Error('Failed to load form options');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        }
+      },
+
+      async loadProductsForBranch(branchId, searchQuery = '') {
+        if (!branchId) {
+          this.productOptions = [];
+          this.filteredProducts = [];
+          return;
+        }
+
+        this.loadingProducts = true;
+        try {
+          const params = new URLSearchParams({ branch_id: branchId });
+          if (searchQuery) {
+            params.append('search', searchQuery);
+          }
+
+          const response = await fetch(`/aruna_solar/api/v1/sales/options?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.productOptions = data.product_skus || [];
+            this.filteredProducts = [...this.productOptions];
+            
+            // Update existing items with stock information for edit mode
+            this.saleForm.sale_items_attributes.forEach((item, index) => {
+              if (item.product_sku_id) {
+                const product = this.productOptions.find(p => p.id === item.product_sku_id);
+                if (product) {
+                  // For edit mode, add back the original quantity
+                  const originalQuantity = item.id ? (this.originalQuantities[item.id] || 0) : 0;
+                  item.available_stock = (product.available_stock || 0) + originalQuantity;
+                } else {
+                  item.available_stock = 0;
+                }
+              }
+            });
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Error loading products: ' + error.message
+          });
+        } finally {
+          this.loadingProducts = false;
+        }
+      },
+
+      async loadSaleData() {
+        try {
+          const response = await fetch(`/sales/${saleId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          if (response.ok) {
+            const saleData = await response.json();
+            this.saleData = saleData;
+            
+            // If sale cannot be edited, stop here
+            if (!saleData.can_edit) {
+              this.loading = false;
+              return;
+            }
+            
+            // Populate form with existing data
+            this.saleForm = {
+              id: saleData.id,
+              invoice_number: saleData.invoice_number,
+              customer_name: saleData.customer_name,
+              customer_phone: saleData.customer_phone || '',
+              customer_address: saleData.customer_address || '',
+              customer_gst_number: saleData.customer_gst_number || '',
+              branch_id: saleData.branch_id,
+              sale_date: saleData.sale_date,
+              due_date: saleData.due_date || '',
+              discount_amount: saleData.discount_amount || 0,
+              notes: saleData.notes || '',
+              sale_items_attributes: saleData.sale_items.map(item => ({
+                id: item.id,                    // Database ID - IMPORTANT!
+                temp_id: item.id,               // Use ID as temp_id for existing items
+                product_sku_id: item.product_sku_id,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                discount_percentage: item.discount_percentage || 0,
+                calculated_total: item.total_price,
+                available_stock: 0,             // Will be set when products load
+                _destroy: false,
+                is_existing: true               // Flag to track existing items
+              }))
+            };
+            
+            console.log('Loaded existing sale items:', this.saleForm.sale_items_attributes);
+            
+            // Store original quantities for stock calculation
+            saleData.sale_items.forEach(item => {
+              this.originalQuantities[item.id] = item.quantity;
+            });
+            
+            // NOW load form options with the branch_id we just got
+            await this.loadFormOptions();
+            
+            // Update existing items with stock information - SIMPLE LOGIC
+            this.saleForm.sale_items_attributes.forEach((item, index) => {
+              if (item.product_sku_id) {
+                const product = this.productOptions.find(p => p.id === item.product_sku_id);
+                if (product) {
+                  // Show and validate against actual current stock only
+                  item.available_stock = product.available_stock || 0;
+                  console.log(`Item ${item.product_sku_id}: available_stock=${item.available_stock}`);
+                } else {
+                  item.available_stock = 0;
+                }
+              }
+            });
+            
+            // Calculate totals for existing items
+            this.saleForm.sale_items_attributes.forEach((item, index) => {
+              this.calculateItemTotal(index);
+            });
+            
+          } else {
+            throw new Error('Failed to load sale data');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+          this.goBack();
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      filterProducts(val, update) {
+        if (val === '') {
+          update(() => {
+            this.loadProductsForBranch(this.saleForm.branch_id);
+          });
+          return;
+        }
+
+        update(() => {
+          this.loadProductsForBranch(this.saleForm.branch_id, val);
+        });
+      },
+
+      availableProductsForItem(itemIndex) {
+        const currentItem = this.saleForm.sale_items_attributes[itemIndex];
+        const otherSelectedIds = this.saleForm.sale_items_attributes
+          .filter((item, index) => index !== itemIndex && !item._destroy)
+          .map(item => item.product_sku_id)
+          .filter(id => id !== null);
+
+        return this.filteredProducts.filter(product => 
+          !otherSelectedIds.includes(product.id) || product.id === currentItem?.product_sku_id
+        );
+      },
+
+      onBranchChange(branchId) {
+        if (branchId) {
+          this.loadProductsForBranch(branchId);
+        } else {
+          this.productOptions = [];
+          this.filteredProducts = [];
+        }
+      },
+
+      addSaleItem() {
+        this.saleForm.sale_items_attributes.push({
+          // NO ID for new items - this is important!
+          temp_id: this.tempIdCounter++,   // Temporary ID for Vue tracking only
+          product_sku_id: null,
+          quantity: 1,
+          unit_price: 0,
+          discount_percentage: 0,
+          calculated_total: 0,
+          available_stock: 0,
+          _destroy: false,
+          is_existing: false               // Flag to clearly mark new items
+        });
+
+        console.log('Added new item (no database ID):', {
+          temp_id: this.tempIdCounter - 1,
+          is_existing: false
+        });
+      },
+
+      updateItemProduct(itemIndex, productSkuId) {
+        if (productSkuId) {
+          const isDuplicate = this.saleForm.sale_items_attributes.some((item, index) => 
+            index !== itemIndex && !item._destroy && item.product_sku_id === productSkuId
+          );
+          
+          if (isDuplicate) {
+            this.saleForm.sale_items_attributes[itemIndex].product_sku_id = null;
+            this.$q.notify({
+              type: 'negative',
+              message: 'This product is already selected in another item',
+              position: 'top'
+            });
+            return;
+          }
+
+          const product = this.productOptions.find(p => p.id === productSkuId);
+          if (product) {
+            const item = this.saleForm.sale_items_attributes[itemIndex];
+            // For edit mode, add back the original quantity if it's an existing item
+            const originalQuantity = item.id ? (this.originalQuantities[item.id] || 0) : 0;
+            item.available_stock = (product.available_stock || 0) + originalQuantity;
+            
+            if (item.quantity > item.available_stock) {
+              item.quantity = Math.min(1, item.available_stock);
+              this.$q.notify({
+                type: 'warning',
+                message: `Only ${item.available_stock} units available for ${product.name}`,
+                position: 'top'
+              });
+            }
+          }
+        }
+        
+        this.calculateItemTotal(itemIndex);
+      },
+
+      removeSaleItem(index) {
+        const item = this.saleForm.sale_items_attributes[index];
+        
+        if (this.isExistingItem(item)) {
+          item._destroy = true;
+        } else {
+          this.saleForm.sale_items_attributes.splice(index, 1);
+        }
+        
+        this.calculateTotals();
+      },
+
+      isExistingItem(item) {
+        return item.id && !isNaN(item.id);
+      },
+
+      getMaxQuantityForItem(item) {
+        // Simple: just return the available stock from inventory
+        return item.available_stock || 0;
+      },
+
+      getDisplayedStock(item) {
+        // Simple: just show the available stock from inventory  
+        return item.available_stock || 0;
+      },
+
+      calculateItemTotal(itemIndex) {
+        const item = this.saleForm.sale_items_attributes[itemIndex];
+        const quantity = parseFloat(item.quantity) || 0;
+        const unitPrice = parseFloat(item.unit_price) || 0;
+        const discountPercentage = parseFloat(item.discount_percentage) || 0;
+        
+        const subtotal = quantity * unitPrice;
+        const discountAmount = (subtotal * discountPercentage) / 100;
+        item.calculated_total = subtotal - discountAmount;
+        
+        this.calculateTotals();
+      },
+
+      calculateTotals() {
+        this.$forceUpdate();
+      },
+
+      getProductName(productSkuId) {
+        const product = this.productOptions.find(p => p.id === productSkuId);
+        return product ? product.name : 'Unknown Product';
+      },
+
+      getProductCode(productSkuId) {
+        const product = this.productOptions.find(p => p.id === productSkuId);
+        return product ? product.code : '';
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      async updateDraft() {
+        if (!this.isFormValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields correctly'
+          });
+          return;
+        }
+
+        this.submitting = true;
+        try {
+          // Prepare sale items data with proper ID handling
+          const saleItemsData = this.saleForm.sale_items_attributes.map(item => {
+            const itemData = {
+              product_sku_id: item.product_sku_id,
+              quantity: parseInt(item.quantity),
+              unit_price: parseFloat(item.unit_price),
+              discount_percentage: parseFloat(item.discount_percentage) || 0
+            };
+            
+            // IMPORTANT: Add ID for existing items (items that came from database)
+            if (item.id && !isNaN(item.id) && item.is_existing) {
+              itemData.id = item.id;
+              console.log('Existing item with ID:', item.id, 'Product:', item.product_sku_id);
+            } else {
+              console.log('New item without ID, Product:', item.product_sku_id);
+            }
+            
+            // Add _destroy flag for items marked for deletion
+            if (item._destroy) {
+              itemData._destroy = true;
+              console.log('Item marked for destruction:', item.id);
+            }
+            
+            return itemData;
+          }).filter(item => {
+            // Remove items that are destroyed AND don't have an ID (new items being removed)
+            return !(item._destroy && !item.id);
+          });
+
+          console.log('Final sale items data being sent:', saleItemsData);
+
+          const cleanedSaleForm = {
+            ...this.saleForm,
+            sale_items_attributes: saleItemsData
+          };
+
+          // Remove temp fields from main form
+          delete cleanedSaleForm.sale_items_attributes.forEach;
+          
+          console.log('Complete sale form being sent:', cleanedSaleForm);
+
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ sale: cleanedSaleForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.currentStep = 2;
+            this.$q.notify({
+              type: 'positive',
+              message: data.message,
+              timeout: 3000
+            });
+          } else {
+            throw new Error(data.errors?.join(', ') || data.message || 'Failed to update sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      async confirmSale() {
+        if (this.confirming) return;
+
+        this.confirming = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/confirm`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.saleConfirmed = true;
+            this.currentStep = 3;
+            this.$q.notify({
+              type: 'positive',
+              message: data.message,
+              timeout: 4000
+            });
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to confirm sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.confirming = false;
+        }
+      },
+
+      addPayment() {
+        window.location.href = `/sales/${saleId}/payment`;
+      },
+
+      goToPayments() {
+        window.location.href = `/sales/${saleId}/payment`;
+      },
+
+      viewSale() {
+        window.location.href = `/sales/${saleId}`;
+      },
+
+      goToSalesList() {
+        window.location.href = '/sales';
+      },
+
+      goBack() {
+        window.location.href = `/sales/${saleId}`;
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

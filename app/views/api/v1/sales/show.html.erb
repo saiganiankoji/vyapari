@@ -1,0 +1,1497 @@
+<!-- Reopen Sale Dialog -->
+        <q-dialog v-model="showReopen" persistent>
+          <q-card style="width: 500px; max-width: 90vw;">
+            <!-- Header -->
+            <q-card-section class="bg-teal text-white">
+              <div class="row items-center justify-between">
+                <div class="row items-center">
+                  <q-icon name="refresh" size="md" class="q-mr-md"></q-icon>
+                  <div>
+                    <div class="text-h5">Reopen Sale</div>
+                    <div class="text-subtitle2">Reopen this closed sale for further processing</div>
+                  </div>
+                </div>
+                <!-- Close button in header -->
+                <q-btn flat round dense icon="close" @click="showReopen = false" />
+              </div>
+            </q-card-section>
+
+            <!-- Content -->
+            <q-card-section class="q-pa-lg">
+              <q-form class="q-gutter-md">
+                <!-- Authorization -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Authorization</div>
+                  <q-input
+                    v-model="reopenForm.authorized_by"
+                    filled
+                    label="Your Full Name *"
+                    placeholder="Enter your name for authorization"
+                    :rules="[val => !!val || 'Your name is required']"
+                  />
+                </div>
+
+                <!-- Reason -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Reason for Reopening</div>
+                  <q-input
+                    v-model="reopenForm.notes"
+                    filled
+                    type="textarea"
+                    rows="3"
+                    label="Explanation"
+                    placeholder="Explain why this sale needs to be reopened..."
+                  />
+                </div>
+
+                <!-- Warning -->
+                <q-banner class="bg-amber-1 text-amber-8 rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="warning" color="amber" />
+                  </template>
+                  This will reset any write-offs and reopen the sale for payments and modifications.
+                </q-banner>
+              </q-form>
+            </q-card-section>
+
+            <!-- Actions -->
+            <q-card-actions class="q-pa-md">
+              <q-space />
+              <q-btn 
+                flat 
+                label="Cancel" 
+                color="grey" 
+                @click="showReopen = false"
+              />
+              <q-btn 
+                label="Reopen Sale" 
+                color="teal" 
+                @click="processReopenSale"
+                :loading="processing"
+                :disable="!isReopenValid"
+                unelevated
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog><!-- app/views/api/v1/sales/show.html.erb - COMPLETE WRITE-OFF IMPLEMENTATION -->
+<style>
+  [v-cloak] {
+    display: none;
+  }
+  
+  .summary-card {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .financial-summary {
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .writeoff-banner {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffcc80 100%);
+    border: 2px solid #ff9800;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .loss-indicator {
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    border-left: 4px solid #f44336;
+    padding: 12px;
+    border-radius: 4px;
+  }
+
+  /* Dialog improvements */
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
+  .sticky-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1000;
+    border-top: 1px solid #e0e0e0;
+  }
+
+  .scroll {
+    overflow-y: auto;
+  }
+
+  /* Ensure dialog content is properly sized */
+  .q-dialog .q-card {
+    display: flex;
+    flex-direction: column;
+  }
+</style>
+
+<div id="app" v-cloak>
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Sales"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="receipt_long" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Sale Details</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Loading State -->
+        <div v-if="loading" class="text-center q-pa-xl">
+          <q-spinner-grid size="50px" color="primary"></q-spinner-grid>
+          <div class="q-mt-md text-h6">Loading sale details...</div>
+        </div>
+        
+        <div v-else class="row q-gutter-md">
+          
+          <!-- Main Content - Full Width -->
+          <div class="col-12">
+            
+            <!-- Sale Header Card -->
+            <q-card class="q-mb-md">
+              <q-card-section>
+                <div class="row items-center justify-between">
+                  <div>
+                    <div class="text-h4 text-primary q-mb-sm">{{ saleData.invoice_number }}</div>
+                    <div class="text-subtitle1 text-grey-7">{{ saleData.formatted_sale_date }}</div>
+                    <q-badge 
+                      :color="getSaleStatusColor(saleData.sale_status)" 
+                      :label="saleData.sale_status === 'draft' ? 'DRAFT' : 'CONFIRMED'"
+                      class="q-mt-sm"
+                    ></q-badge>
+                    <q-badge 
+                      v-if="saleData.is_closed"
+                      color="grey"
+                      label="CLOSED"
+                      class="q-ml-sm q-mt-sm"
+                    ></q-badge>
+                  </div>
+                  <div class="column q-gutter-sm">
+                    <!-- Regular Actions -->
+                    <div class="row q-gutter-sm">
+                      <q-btn 
+                        v-if="saleData.can_edit"
+                        color="orange" 
+                        icon="edit" 
+                        label="Edit Sale"
+                        @click="editSale"
+                        outline
+                        size="sm"
+                      ></q-btn>
+                      <q-btn 
+                        v-if="saleData.can_confirm"
+                        color="green" 
+                        icon="check_circle" 
+                        label="Confirm Sale"
+                        @click="confirmSale"
+                        size="sm"
+                      ></q-btn>
+                      <q-btn 
+                        v-if="saleData.can_add_payments"
+                        color="blue" 
+                        icon="payment" 
+                        label="Add Payment"
+                        @click="addPayment"
+                        size="sm"
+                      ></q-btn>
+                    </div>
+                    
+                    <!-- Write-off Actions -->
+                    <div class="row q-gutter-sm" v-if="canShowWriteoffActions">
+                      <q-btn 
+                        color="orange" 
+                        icon="money_off" 
+                        label="Partial Write-off"
+                        @click="showPartialWriteoffDialog"
+                        outline
+                        size="sm"
+                      ></q-btn>
+                      <q-btn 
+                        color="red" 
+                        icon="cancel" 
+                        label="Full Write-off"
+                        @click="showFullWriteoffDialog"
+                        outline
+                        size="sm"
+                      ></q-btn>
+                      <q-btn 
+                        color="grey" 
+                        icon="close" 
+                        label="Close Sale"
+                        @click="showCloseSaleDialog"
+                        outline
+                        size="sm"
+                        :disable="saleData.is_closed"
+                      ></q-btn>
+                    </div>
+                    
+                    <!-- Reopen Action -->
+                    <div v-if="saleData.is_closed">
+                      <q-btn 
+                        color="teal" 
+                        icon="refresh" 
+                        label="Reopen Sale"
+                        @click="showReopenDialog"
+                        outline
+                        size="sm"
+                      ></q-btn>
+                    </div>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Write-off Information Banner -->
+            <div v-if="saleData.writeoff_amount > 0" class="writeoff-banner">
+              <div class="row items-center">
+                <q-icon name="warning" color="orange" size="md" class="q-mr-md"></q-icon>
+                <div class="column">
+                  <div class="text-h6 text-orange">Write-off Applied</div>
+                  <div class="text-body2">
+                    Amount: ₹{{ formatCurrency(saleData.writeoff_amount) }} 
+                    ({{ saleData.writeoff_percentage }}% of sale value)
+                  </div>
+                  <div class="text-caption text-grey-7">
+                    Reason: {{ saleData.writeoff_reason }} | 
+                    Date: {{ saleData.writeoff_date }} | 
+                    By: {{ saleData.writeoff_by }}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Customer Information -->
+            <q-card class="q-mb-md">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="person" class="q-mr-sm text-primary"></q-icon>
+                  Customer Information
+                </div>
+                <div class="row q-gutter-md">
+                  <div class="col-12 col-md-6">
+                    <q-item>
+                      <q-item-section avatar>
+                        <q-icon name="person" color="primary"></q-icon>
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label class="text-weight-bold">{{ saleData.customer_name }}</q-item-label>
+                        <q-item-label caption>Customer Name</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </div>
+                  <div class="col-12 col-md-6" v-if="saleData.customer_phone">
+                    <q-item>
+                      <q-item-section avatar>
+                        <q-icon name="phone" color="primary"></q-icon>
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label class="text-weight-bold">{{ saleData.customer_phone }}</q-item-label>
+                        <q-item-label caption>Phone Number</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </div>
+                  <div class="col-12" v-if="saleData.customer_address">
+                    <q-item>
+                      <q-item-section avatar>
+                        <q-icon name="location_on" color="primary"></q-icon>
+                      </q-item-section>
+                      <q-item-section>
+                        <q-item-label class="text-weight-bold">{{ saleData.customer_address }}</q-item-label>
+                        <q-item-label caption>Address</q-item-label>
+                      </q-item-section>
+                    </q-item>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Financial Summary Card -->
+            <q-card v-if="saleData.sale_status === 'confirmed'" class="q-mb-md">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="account_balance_wallet" class="q-mr-sm text-primary"></q-icon>
+                  Financial Summary
+                </div>
+                
+                <div class="financial-summary">
+                  <div class="row q-gutter-md">
+                    <!-- Main Amounts -->
+                    <div class="col-12 col-md-6">
+                      <div class="row justify-between q-mb-sm">
+                        <span class="text-subtitle1">Final Amount:</span>
+                        <span class="text-subtitle1 text-weight-bold text-primary">₹{{ formatCurrency(saleData.final_amount) }}</span>
+                      </div>
+                      <div class="row justify-between q-mb-sm">
+                        <span class="text-positive">Paid Amount:</span>
+                        <span class="text-h6 text-weight-bold text-positive">₹{{ formatCurrency(saleData.paid_amount) }}</span>
+                      </div>
+                      <div class="row justify-between q-mb-sm" v-if="saleData.writeoff_amount > 0">
+                        <span class="text-orange">Written Off:</span>
+                        <span class="text-h6 text-weight-bold text-orange">₹{{ formatCurrency(saleData.writeoff_amount) }}</span>
+                      </div>
+                      <div class="row justify-between" v-if="saleData.due_amount > 0">
+                        <span class="text-negative">Due Amount:</span>
+                        <span class="text-h6 text-weight-bold text-negative">₹{{ formatCurrency(saleData.due_amount) }}</span>
+                      </div>
+                      <div v-else-if="!saleData.is_closed" class="row justify-center">
+                        <q-badge color="green" class="q-pa-sm">FULLY PAID</q-badge>
+                      </div>
+                    </div>
+                    
+                    <!-- Performance Metrics -->
+                    <div class="col-12 col-md-6">
+                      <div class="column q-gutter-sm">
+                        <div class="text-center q-mb-sm">
+                          <q-badge 
+                            :color="getPaymentStatusColor(saleData.payment_status, saleData.is_overdue)" 
+                            :label="'Status: ' + saleData.payment_status.toUpperCase()"
+                            class="q-pa-sm"
+                          ></q-badge>
+                        </div>
+                        
+                        <div class="row justify-between">
+                          <span>Collection Efficiency:</span>
+                          <span class="text-weight-bold" :class="saleData.collection_efficiency >= 80 ? 'text-positive' : 'text-orange'">
+                            {{ saleData.collection_efficiency }}%
+                          </span>
+                        </div>
+                        
+                        <div class="row justify-between" v-if="saleData.recovery_rate">
+                          <span>Recovery Rate:</span>
+                          <span class="text-weight-bold text-blue">{{ saleData.recovery_rate }}%</span>
+                        </div>
+                        
+                        <div v-if="saleData.writeoff_amount > 0" class="loss-indicator q-mt-sm">
+                          <div class="text-caption text-red text-weight-bold">
+                            Loss: ₹{{ formatCurrency(saleData.writeoff_amount) }} ({{ saleData.writeoff_percentage }}%)
+                          </div>
+                        </div>
+                        
+                        <div v-if="saleData.is_overdue" class="text-caption text-red q-mt-xs">
+                          <q-icon name="schedule" class="q-mr-xs"></q-icon>
+                          {{ saleData.days_overdue }} days overdue
+                        </div>
+                        
+                        <div v-if="saleData.is_closed" class="text-caption text-grey-7 q-mt-xs">
+                          <q-icon name="lock" class="q-mr-xs"></q-icon>
+                          Closed: {{ saleData.closure_status }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Sale Items -->
+            <q-card class="q-mb-md">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="shopping_basket" class="q-mr-sm text-primary"></q-icon>
+                  Sale Items
+                </div>
+                <q-table
+                  :rows="saleData.sale_items"
+                  :columns="itemColumns"
+                  row-key="id"
+                  flat
+                  bordered
+                  :pagination="{ rowsPerPage: 0 }"
+                  hide-pagination
+                >
+                  <template v-slot:body-cell-product="props">
+                    <q-td :props="props">
+                      <div class="text-weight-bold">{{ props.row.product_sku_name }}</div>
+                      <div class="text-caption text-grey-7">{{ props.row.product_sku_code }}</div>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-quantity="props">
+                    <q-td :props="props" class="text-center">
+                      <q-chip color="blue" text-color="white" dense>
+                        {{ props.value }}
+                      </q-chip>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-unit_price="props">
+                    <q-td :props="props" class="text-right">
+                      ₹{{ formatCurrency(props.value) }}
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-discount="props">
+                    <q-td :props="props" class="text-center">
+                      <div v-if="props.row.discount_percentage > 0">
+                        <q-badge color="orange" outline>
+                          {{ props.row.discount_percentage }}%
+                        </q-badge>
+                        <div class="text-caption text-grey-7">
+                          -₹{{ formatCurrency(props.row.discount_amount) }}
+                        </div>
+                      </div>
+                      <div v-else class="text-grey-6">-</div>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-total_price="props">
+                    <q-td :props="props" class="text-right">
+                      <div class="text-h6 text-weight-bold text-positive">
+                        ₹{{ formatCurrency(props.value) }}
+                      </div>
+                    </q-td>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+            <!-- Payment History -->
+            <q-card>
+              <q-card-section>
+                <div class="row items-center justify-between q-mb-md">
+                  <div class="text-h6">
+                    <q-icon name="payment" class="q-mr-sm text-primary"></q-icon>
+                    Payment History
+                  </div>
+                  <q-btn 
+                    v-if="saleData.can_add_payments"
+                    color="green" 
+                    icon="add" 
+                    label="Add Payment"
+                    @click="addPayment"
+                    outline
+                    dense
+                  ></q-btn>
+                </div>
+                
+                <q-table
+                  :rows="saleData.payments"
+                  :columns="paymentColumns"
+                  row-key="id"
+                  flat
+                  bordered
+                  :pagination="{ rowsPerPage: 0 }"
+                  hide-pagination
+                >
+                  <template v-slot:body-cell-payment_date="props">
+                    <q-td :props="props">
+                      <q-icon name="calendar_today" class="q-mr-xs text-grey-6"></q-icon>
+                      {{ props.row.formatted_payment_date }}
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-amount="props">
+                    <q-td :props="props" class="text-right">
+                      <div class="text-h6 text-weight-bold text-positive">
+                        ₹{{ formatCurrency(props.value) }}
+                      </div>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-payment_mode="props">
+                    <q-td :props="props" class="text-center">
+                      <q-badge color="blue" outline>
+                        {{ props.value.toUpperCase() }}
+                      </q-badge>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:no-data>
+                    <div class="full-width row flex-center text-grey-6 q-gutter-sm q-pa-lg">
+                      <q-icon size="2em" name="payment"></q-icon>
+                      <span>{{ saleData.sale_status === 'draft' ? 'Confirm sale first to add payments' : 'No payments recorded yet' }}</span>
+                    </div>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+          </div>
+        </div>
+
+        <!-- Write-off Dialogs -->
+        
+        <!-- Partial Write-off Dialog -->
+        <q-dialog v-model="showPartialWriteoff" persistent>
+          <q-card style="width: 700px; max-width: 90vw; max-height: 90vh;" class="scroll">
+            <!-- Header -->
+            <q-card-section class="bg-orange text-white sticky-header">
+              <div class="row items-center justify-between">
+                <div class="row items-center">
+                  <q-icon name="money_off" size="md" class="q-mr-md"></q-icon>
+                  <div>
+                    <div class="text-h5">Partial Write-off</div>
+                    <div class="text-subtitle2">Write off part of the due amount (₹{{ formatCurrency(saleData.due_amount) }})</div>
+                  </div>
+                </div>
+                <!-- Close button in header -->
+                <q-btn flat round dense icon="close" @click="showPartialWriteoff = false" />
+              </div>
+            </q-card-section>
+
+            <!-- Content -->
+            <q-card-section class="q-pa-lg scroll">
+              <q-form class="q-gutter-md">
+                <!-- Amount Input -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Write-off Amount</div>
+                  <q-input
+                    v-model.number="partialWriteoffForm.amount"
+                    type="number"
+                    filled
+                    prefix="₹"
+                    :max="saleData.due_amount"
+                    :min="0.01"
+                    step="0.01"
+                    label="Enter amount to write off"
+                  >
+                    <template v-slot:append>
+                      <q-btn 
+                        flat 
+                        dense 
+                        color="orange" 
+                        label="Max" 
+                        @click="partialWriteoffForm.amount = saleData.due_amount"
+                        size="sm"
+                      />
+                    </template>
+                  </q-input>
+                  <div class="text-caption text-grey-6 q-mt-xs">
+                    Maximum: ₹{{ formatCurrency(saleData.due_amount) }}
+                    <span v-if="partialWriteoffForm.amount > 0" class="text-primary">
+                      | Remaining: ₹{{ formatCurrency(saleData.due_amount - (partialWriteoffForm.amount || 0)) }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Reason Selection -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Reason for Write-off</div>
+                  <q-select
+                    v-model="partialWriteoffForm.reason"
+                    filled
+                    :options="writeoffReasons"
+                    label="Select reason"
+                    emit-value
+                    map-options
+                  />
+                  
+                  <!-- Custom Reason -->
+                  <q-input
+                    v-if="partialWriteoffForm.reason === 'Other'"
+                    v-model="partialWriteoffForm.customReason"
+                    filled
+                    label="Enter custom reason"
+                    placeholder="Describe the specific reason..."
+                    class="q-mt-md"
+                  />
+                </div>
+
+                <!-- Authorization -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Authorization</div>
+                  <q-input
+                    v-model="partialWriteoffForm.authorized_by"
+                    filled
+                    label="Your Full Name"
+                    placeholder="Enter your name for authorization"
+                  />
+                </div>
+
+                <!-- Notes -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Additional Notes</div>
+                  <q-input
+                    v-model="partialWriteoffForm.notes"
+                    filled
+                    type="textarea"
+                    rows="3"
+                    label="Additional context"
+                    placeholder="Provide details about this write-off..."
+                  />
+                </div>
+
+                <!-- Preview -->
+                <div v-if="partialWriteoffForm.amount > 0" class="bg-blue-1 q-pa-md rounded-borders">
+                  <div class="text-subtitle2 text-blue-8 q-mb-sm">Impact Preview</div>
+                  <div class="row q-gutter-md text-center">
+                    <div class="col">
+                      <div class="text-caption">Current Due</div>
+                      <div class="text-h6 text-red">₹{{ formatCurrency(saleData.due_amount) }}</div>
+                    </div>
+                    <div class="col">
+                      <div class="text-caption">Write-off</div>
+                      <div class="text-h6 text-orange">₹{{ formatCurrency(partialWriteoffForm.amount) }}</div>
+                    </div>
+                    <div class="col">
+                      <div class="text-caption">New Due</div>
+                      <div class="text-h6 text-primary">₹{{ formatCurrency(saleData.due_amount - (partialWriteoffForm.amount || 0)) }}</div>
+                    </div>
+                  </div>
+                </div>
+              </q-form>
+            </q-card-section>
+
+            <!-- Actions - FIXED: Always visible at bottom -->
+            <q-card-actions class="q-pa-md bg-grey-1 sticky-footer">
+              <q-space />
+              <q-btn 
+                flat 
+                label="Cancel" 
+                color="grey" 
+                @click="showPartialWriteoff = false"
+                size="md"
+                class="q-px-lg"
+              />
+              <q-btn 
+                label="Process Write-off" 
+                color="orange" 
+                @click="processPartialWriteoff"
+                :loading="processing"
+                :disable="!isPartialWriteoffValid"
+                unelevated
+                size="md"
+                class="q-px-lg"
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+        <!-- Full Write-off Dialog -->
+        <q-dialog v-model="showFullWriteoff" persistent>
+          <q-card style="width: 700px; max-width: 90vw;">
+            <!-- Header -->
+            <q-card-section class="bg-red text-white">
+              <div class="row items-center justify-between">
+                <div class="row items-center">
+                  <q-icon name="cancel" size="md" class="q-mr-md"></q-icon>
+                  <div>
+                    <div class="text-h5">Full Write-off</div>
+                    <div class="text-subtitle2">Write off the entire due amount of ₹{{ formatCurrency(saleData.due_amount) }}</div>
+                  </div>
+                </div>
+                <!-- Close button in header -->
+                <q-btn flat round dense icon="close" @click="showFullWriteoff = false" />
+              </div>
+            </q-card-section>
+
+            <!-- Content -->
+            <q-card-section class="q-pa-lg">
+              <q-form class="q-gutter-md">
+                <!-- Warning -->
+                <q-banner class="bg-red-1 text-red-8 rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="warning" color="red" />
+                  </template>
+                  <div class="text-weight-medium">
+                    This action will permanently write off ₹{{ formatCurrency(saleData.due_amount) }} and close the sale.
+                  </div>
+                </q-banner>
+
+                <!-- Reason -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Reason for Full Write-off</div>
+                  <q-select
+                    v-model="fullWriteoffForm.reason"
+                    filled
+                    :options="writeoffReasons"
+                    label="Select reason"
+                    emit-value
+                    map-options
+                  />
+                  
+                  <!-- Custom Reason Input - Shows when "Other" is selected -->
+                  <q-input
+                    v-if="fullWriteoffForm.reason === 'Other'"
+                    v-model="fullWriteoffForm.customReason"
+                    filled
+                    label="Enter custom reason"
+                    placeholder="Describe the specific reason..."
+                    class="q-mt-md"
+                  />
+                </div>
+
+                <!-- Authorization -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Authorization</div>
+                  <q-input
+                    v-model="fullWriteoffForm.authorized_by"
+                    filled
+                    label="Your Full Name"
+                    placeholder="Enter your name for authorization"
+                  />
+                </div>
+
+                <!-- Explanation -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Detailed Explanation <span class="text-red">*</span></div>
+                  <q-input
+                    v-model="fullWriteoffForm.notes"
+                    filled
+                    type="textarea"
+                    rows="4"
+                    label="Required explanation"
+                    placeholder="Provide detailed explanation including steps taken to collect payment, customer circumstances, and business justification..."
+                    counter
+                    maxlength="500"
+                  />
+                  <div class="text-caption text-grey-6 q-mt-xs">
+                    A detailed explanation is required for full write-offs for audit purposes.
+                  </div>
+                </div>
+
+                <!-- Impact -->
+                <div class="bg-grey-2 q-pa-md rounded-borders">
+                  <div class="text-subtitle2 text-grey-8 q-mb-sm">Financial Impact</div>
+                  <div class="row q-gutter-md text-center">
+                    <div class="col">
+                      <div class="text-caption">Sale Value</div>
+                      <div class="text-h6">₹{{ formatCurrency(saleData.final_amount) }}</div>
+                    </div>
+                    <div class="col">
+                      <div class="text-caption">Already Paid</div>
+                      <div class="text-h6 text-green">₹{{ formatCurrency(saleData.paid_amount) }}</div>
+                    </div>
+                    <div class="col">
+                      <div class="text-caption">Will be Written Off</div>
+                      <div class="text-h6 text-red">₹{{ formatCurrency(saleData.due_amount) }}</div>
+                    </div>
+                    <div class="col">
+                      <div class="text-caption">Loss %</div>
+                      <div class="text-h6 text-red">{{ ((saleData.due_amount / saleData.final_amount) * 100).toFixed(1) }}%</div>
+                    </div>
+                  </div>
+                </div>
+              </q-form>
+            </q-card-section>
+
+            <!-- Actions -->
+            <q-card-actions class="q-pa-md">
+              <q-space />
+              <q-btn 
+                flat 
+                label="Cancel" 
+                color="grey" 
+                @click="showFullWriteoff = false"
+              />
+              <q-btn 
+                label="Write Off & Close Sale" 
+                color="red" 
+                @click="processFullWriteoff"
+                :loading="processing"
+                :disable="!isFullWriteoffValid"
+                unelevated
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+        <!-- Close Sale Dialog -->
+        <q-dialog v-model="showCloseSale" persistent>
+          <q-card style="width: 600px; max-width: 90vw;">
+            <!-- Header -->
+            <q-card-section class="bg-grey-7 text-white">
+              <div class="row items-center justify-between">
+                <div class="row items-center">
+                  <q-icon name="close" size="md" class="q-mr-md"></q-icon>
+                  <div>
+                    <div class="text-h5">Close Sale</div>
+                    <div class="text-subtitle2">Close this sale without write-off</div>
+                  </div>
+                </div>
+                <!-- Close button in header -->
+                <q-btn flat round dense icon="close" @click="showCloseSale = false" />
+              </div>
+            </q-card-section>
+
+            <!-- Content -->
+            <q-card-section class="q-pa-lg">
+              <q-form class="q-gutter-md">
+                <!-- Info -->
+                <q-banner class="bg-blue-1 text-blue-8 rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="info" color="blue" />
+                  </template>
+                  <div>
+                    This will close the sale but keep the due amount of ₹{{ formatCurrency(saleData.due_amount) }} on record for future reference.
+                  </div>
+                </q-banner>
+
+                <!-- Reason -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Reason for Closure</div>
+                  <q-select
+                    v-model="closeSaleForm.reason"
+                    filled
+                    :options="closureReasons"
+                    label="Select reason"
+                    emit-value
+                    map-options
+                  />
+                  
+                  <q-input
+                    v-if="closeSaleForm.reason === 'Other'"
+                    v-model="closeSaleForm.customReason"
+                    filled
+                    label="Enter custom reason"
+                    placeholder="Describe the specific reason..."
+                    class="q-mt-md"
+                  />
+                </div>
+
+                <!-- Authorization -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Authorization</div>
+                  <q-input
+                    v-model="closeSaleForm.authorized_by"
+                    filled
+                    label="Your Full Name"
+                    placeholder="Enter your name for authorization"
+                  />
+                </div>
+
+                <!-- Notes -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Additional Notes</div>
+                  <q-input
+                    v-model="closeSaleForm.notes"
+                    filled
+                    type="textarea"
+                    rows="3"
+                    label="Additional information"
+                    placeholder="Any additional information about the closure..."
+                  />
+                </div>
+              </q-form>
+            </q-card-section>
+
+            <!-- Actions -->
+            <q-card-actions class="q-pa-md">
+              <q-space />
+              <q-btn 
+                flat 
+                label="Cancel" 
+                color="grey" 
+                @click="showCloseSale = false"
+              />
+              <q-btn 
+                label="Close Sale" 
+                color="grey-8" 
+                @click="processCloseSale"
+                :loading="processing"
+                :disable="!isCloseSaleValid"
+                unelevated
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+        <!-- Reopen Sale Dialog -->
+        <q-dialog v-model="showReopen" persistent>
+          <q-card style="width: 500px; max-width: 90vw;">
+            <!-- Header -->
+            <q-card-section class="bg-teal text-white">
+              <div class="row items-center">
+                <q-icon name="refresh" size="md" class="q-mr-md"></q-icon>
+                <div>
+                  <div class="text-h5">Reopen Sale</div>
+                  <div class="text-subtitle2">Reopen this closed sale for further processing</div>
+                </div>
+              </div>
+            </q-card-section>
+
+            <!-- Content -->
+            <q-card-section class="q-pa-lg">
+              <q-form class="q-gutter-md">
+                <!-- Authorization -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Authorization</div>
+                  <q-input
+                    v-model="reopenForm.authorized_by"
+                    filled
+                    label="Your Full Name *"
+                    placeholder="Enter your name for authorization"
+                    :rules="[val => !!val || 'Your name is required']"
+                  />
+                </div>
+
+                <!-- Reason -->
+                <div>
+                  <div class="text-subtitle1 text-weight-medium q-mb-sm">Reason for Reopening</div>
+                  <q-input
+                    v-model="reopenForm.notes"
+                    filled
+                    type="textarea"
+                    rows="3"
+                    label="Explanation"
+                    placeholder="Explain why this sale needs to be reopened..."
+                  />
+                </div>
+
+                <!-- Warning -->
+                <q-banner class="bg-amber-1 text-amber-8 rounded-borders">
+                  <template v-slot:avatar>
+                    <q-icon name="warning" color="amber" />
+                  </template>
+                  This will reset any write-offs and reopen the sale for payments and modifications.
+                </q-banner>
+              </q-form>
+            </q-card-section>
+
+            <!-- Actions -->
+            <q-card-actions class="q-pa-md">
+              <q-space />
+              <q-btn 
+                flat 
+                label="Cancel" 
+                color="grey" 
+                @click="showReopen = false"
+              />
+              <q-btn 
+                label="Reopen Sale" 
+                color="teal" 
+                @click="processReopenSale"
+                :loading="processing"
+                :disable="!isReopenValid"
+                unelevated
+              />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const saleId = '<%= params[:id] %>';
+  
+  const app = Vue.createApp({
+    data() {
+      return {
+        loading: true,
+        processing: false,
+        showPartialWriteoff: false,
+        showFullWriteoff: false,
+        showCloseSale: false,
+        showReopen: false,
+        saleData: {
+          invoice_number: '',
+          customer_name: '',
+          branch_name: '',
+          sale_items: [],
+          payments: [],
+          total_amount: 0,
+          final_amount: 0,
+          paid_amount: 0,
+          due_amount: 0,
+          writeoff_amount: 0,
+          writeoff_reason: '',
+          writeoff_date: '',
+          writeoff_by: '',
+          writeoff_percentage: 0,
+          collection_efficiency: 0,
+          recovery_rate: 0,
+          payment_status: 'pending',
+          sale_status: 'draft',
+          is_closed: false,
+          closure_status: '',
+          can_edit: false,
+          can_confirm: false,
+          can_add_payments: false,
+          can_writeoff: false
+        },
+        partialWriteoffForm: {
+          amount: '',
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        },
+        fullWriteoffForm: {
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        },
+        closeSaleForm: {
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        },
+        reopenForm: {
+          authorized_by: '',
+          notes: ''
+        },
+        writeoffReasons: [
+          'Customer financial hardship',
+          'Customer dispute settlement', 
+          'Customer relocated/unreachable',
+          'Legal settlement',
+          'Goodwill gesture',
+          'Business closure',
+          'Customer bankruptcy',
+          'Uncollectable debt',
+          'Other'
+        ],
+        closureReasons: [
+          'Customer relocated abroad',
+          'Customer business closed',
+          'Legal dispute pending',
+          'Customer deceased',
+          'Account transferred',
+          'Payment plan in progress',
+          'Other'
+        ],
+        itemColumns: [
+          { name: 'product', label: 'Product', align: 'left' },
+          { name: 'quantity', label: 'Quantity', align: 'center', field: 'quantity' },
+          { name: 'unit_price', label: 'Unit Price', align: 'right', field: 'unit_price' },
+          { name: 'discount', label: 'Discount', align: 'center' },
+          { name: 'total_price', label: 'Total', align: 'right', field: 'total_price' }
+        ],
+        paymentColumns: [
+          { name: 'payment_date', label: 'Date', align: 'left', field: 'formatted_payment_date' },
+          { name: 'amount', label: 'Amount', align: 'right', field: 'amount' },
+          { name: 'payment_mode', label: 'Mode', align: 'center', field: 'payment_mode' },
+          { name: 'reference_number', label: 'Reference', align: 'left', field: 'reference_number' },
+          { name: 'notes', label: 'Notes', align: 'left', field: 'notes' }
+        ]
+      }
+    },
+    computed: {
+      canShowWriteoffActions() {
+        return this.saleData.sale_status === 'confirmed' && 
+               this.saleData.due_amount > 0 && 
+               !this.saleData.is_closed;
+      },
+      isPartialWriteoffValid() {
+        const hasValidReason = this.partialWriteoffForm.reason && 
+          (this.partialWriteoffForm.reason !== 'Other' || this.partialWriteoffForm.customReason);
+        
+        return this.partialWriteoffForm.amount > 0 &&
+               this.partialWriteoffForm.amount <= this.saleData.due_amount &&
+               hasValidReason &&
+               this.partialWriteoffForm.authorized_by;
+      },
+      isFullWriteoffValid() {
+        const hasValidReason = this.fullWriteoffForm.reason && 
+          (this.fullWriteoffForm.reason !== 'Other' || this.fullWriteoffForm.customReason);
+        
+        return hasValidReason &&
+               this.fullWriteoffForm.authorized_by &&
+               this.fullWriteoffForm.notes &&
+               this.fullWriteoffForm.notes.length >= 10;
+      },
+      isCloseSaleValid() {
+        const hasValidReason = this.closeSaleForm.reason && 
+          (this.closeSaleForm.reason !== 'Other' || this.closeSaleForm.customReason);
+        
+        return hasValidReason && this.closeSaleForm.authorized_by;
+      },
+      isReopenValid() {
+        return this.reopenForm.authorized_by;
+      }
+    },
+    mounted() {
+      this.loadSaleData();
+    },
+    methods: {
+      async loadSaleData() {
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            
+            this.saleData = {
+              ...data,
+              writeoff_amount: data.writeoff_amount || 0,
+              writeoff_reason: data.writeoff_reason || '',
+              writeoff_date: data.writeoff_date || '',
+              writeoff_by: data.writeoff_by || '',
+              is_closed: data.is_closed || false,
+              closure_status: data.closure_status || '',
+              writeoff_percentage: data.writeoff_percentage || 0,
+              collection_efficiency: data.collection_efficiency || 0,
+              recovery_rate: data.recovery_rate || 0,
+              can_writeoff: data.sale_status === 'confirmed' && 
+                           data.due_amount > 0 && 
+                           !(data.is_closed || false)
+            };
+            
+            console.log('Sale data loaded:', this.saleData);
+            console.log('Can show writeoff actions:', this.canShowWriteoffActions);
+          } else {
+            throw new Error('Failed to load sale data');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+          this.goBack();
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async confirmSale() {
+        this.$q.dialog({
+          title: 'Confirm Sale',
+          message: 'This will deduct inventory and lock the sale for editing. Continue?',
+          cancel: true,
+          persistent: true,
+          ok: {
+            label: 'Confirm & Deduct Inventory',
+            color: 'green'
+          }
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/confirm`, {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message,
+                timeout: 4000
+              });
+              await this.loadSaleData();
+            } else {
+              throw new Error(data.errors?.join(', ') || 'Failed to confirm sale');
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      showPartialWriteoffDialog() {
+        this.partialWriteoffForm = {
+          amount: '',
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        };
+        this.showPartialWriteoff = true;
+        console.log('Partial writeoff dialog opened');
+      },
+
+      showFullWriteoffDialog() {
+        this.fullWriteoffForm = {
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        };
+        this.showFullWriteoff = true;
+        console.log('Full writeoff dialog opened');
+      },
+
+      showCloseSaleDialog() {
+        this.closeSaleForm = {
+          reason: '',
+          customReason: '',
+          authorized_by: '',
+          notes: ''
+        };
+        this.showCloseSale = true;
+        console.log('Close sale dialog opened');
+      },
+
+      showReopenDialog() {
+        this.reopenForm = {
+          authorized_by: '',
+          notes: ''
+        };
+        this.showReopen = true;
+        console.log('Reopen dialog opened');
+      },
+
+      async processPartialWriteoff() {
+        if (!this.isPartialWriteoffValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields correctly'
+          });
+          return;
+        }
+
+        this.processing = true;
+        try {
+          const finalReason = this.partialWriteoffForm.reason === 'Other' ? 
+            this.partialWriteoffForm.customReason : this.partialWriteoffForm.reason;
+            
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/writeoff`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              writeoff_type: 'partial',
+              amount: parseFloat(this.partialWriteoffForm.amount),
+              reason: finalReason,
+              authorized_by: this.partialWriteoffForm.authorized_by,
+              notes: this.partialWriteoffForm.notes || `Partial write-off of ₹${this.partialWriteoffForm.amount}`
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.$q.notify({
+              type: 'positive',
+              message: `Partial write-off of ₹${this.formatCurrency(this.partialWriteoffForm.amount)} processed successfully`,
+              timeout: 4000
+            });
+            this.showPartialWriteoff = false;
+            await this.loadSaleData();
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to process write-off');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.processing = false;
+        }
+      },
+
+      async processFullWriteoff() {
+        if (!this.isFullWriteoffValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields correctly'
+          });
+          return;
+        }
+
+        this.processing = true;
+        try {
+          const finalReason = this.fullWriteoffForm.reason === 'Other' ? 
+            this.fullWriteoffForm.customReason : this.fullWriteoffForm.reason;
+            
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/writeoff`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              writeoff_type: 'full',
+              reason: finalReason,
+              authorized_by: this.fullWriteoffForm.authorized_by,
+              notes: this.fullWriteoffForm.notes
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.$q.notify({
+              type: 'positive',
+              message: `Full write-off of ₹${this.formatCurrency(this.saleData.due_amount)} completed and sale closed`,
+              timeout: 4000
+            });
+            this.showFullWriteoff = false;
+            await this.loadSaleData();
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to process write-off');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.processing = false;
+        }
+      },
+
+      async processCloseSale() {
+        if (!this.isCloseSaleValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields'
+          });
+          return;
+        }
+
+        this.processing = true;
+        try {
+          const finalReason = this.closeSaleForm.reason === 'Other' ? 
+            this.closeSaleForm.customReason : this.closeSaleForm.reason;
+            
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/close`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              reason: finalReason,
+              authorized_by: this.closeSaleForm.authorized_by,
+              notes: this.closeSaleForm.notes
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.$q.notify({
+              type: 'positive',
+              message: 'Sale closed successfully',
+              timeout: 3000
+            });
+            this.showCloseSale = false;
+            await this.loadSaleData();
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to close sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.processing = false;
+        }
+      },
+
+      async processReopenSale() {
+        if (!this.isReopenValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please enter your name'
+          });
+          return;
+        }
+
+        this.processing = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/reopen`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              authorized_by: this.reopenForm.authorized_by,
+              notes: this.reopenForm.notes || 'Sale reopened for further processing'
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.$q.notify({
+              type: 'positive',
+              message: 'Sale reopened successfully',
+              timeout: 3000
+            });
+            this.showReopen = false;
+            await this.loadSaleData();
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to reopen sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.processing = false;
+        }
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      getSaleStatusColor(status) {
+        return status === 'draft' ? 'orange' : 'green';
+      },
+
+      getPaymentStatusColor(status, isOverdue) {
+        if (isOverdue) return 'red';
+        
+        switch (status) {
+          case 'completed': return 'green';
+          case 'partial': return 'orange';
+          case 'pending': return 'blue';
+          case 'closed': return 'grey';
+          default: return 'grey';
+        }
+      },
+
+      editSale() {
+        window.location.href = `/sales/${saleId}/edit`;
+      },
+
+      addPayment() {
+        window.location.href = `/sales/${saleId}/payment`;
+      },
+
+      goBack() {
+        window.location.href = '/sales';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

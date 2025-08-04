@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Verify Account - ArunaSolar</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+    }
+    .error-message {
+      color: #ff5252;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="row justify-center items-center" style="height: 100vh;">
+    <q-card class="login-card q-pa-xl">
+      <q-card-section class="text-center">
+        <q-icon name="verified_user" size="xl" color="primary"></q-icon>
+        <div class="text-h5 q-mt-sm">Verify Account</div>
+        <div class="text-subtitle2 text-grey-7 q-mt-sm">
+          Enter temporary password sent to {{ mobileNumber }}
+        </div>
+      </q-card-section>
+
+      <q-form @submit.prevent="verifyUser" class="q-gutter-md">
+        <q-input
+          v-model="tempPassword"
+          filled
+          label="Temporary Password"
+          placeholder="Enter 6-digit code"
+          maxlength="6"
+          :rules="[val => !!val || 'Temporary password is required']"
+        >
+          <template v-slot:prepend>
+            <q-icon name="vpn_key"></q-icon>
+          </template>
+        </q-input>
+
+        <q-input
+          v-model="newPassword"
+          filled
+          label="New Password"
+          :type="showPassword ? 'text' : 'password'"
+          :rules="[
+            val => !!val || 'New password is required',
+            val => val.length >= 6 || 'Password must be at least 6 characters'
+          ]"
+        >
+          <template v-slot:prepend>
+            <q-icon name="lock"></q-icon>
+          </template>
+          <template v-slot:append>
+            <q-icon
+              :name="showPassword ? 'visibility_off' : 'visibility'"
+              @click="showPassword = !showPassword"
+              class="cursor-pointer"
+            ></q-icon>
+          </template>
+        </q-input>
+
+        <q-input
+          v-model="confirmPassword"
+          filled
+          label="Confirm New Password"
+          :type="showPassword ? 'text' : 'password'"
+          :rules="[
+            val => !!val || 'Please confirm your password',
+            val => val === newPassword || 'Passwords must match'
+          ]"
+        >
+          <template v-slot:prepend>
+            <q-icon name="lock_outline"></q-icon>
+          </template>
+          <template v-slot:append>
+            <q-icon
+              :name="showPassword ? 'visibility_off' : 'visibility'"
+              @click="showPassword = !showPassword"
+              class="cursor-pointer"
+            ></q-icon>
+          </template>
+        </q-input>
+
+        <q-btn 
+          label="Verify & Set Password" 
+          type="submit" 
+          color="primary" 
+          size="lg"
+          class="full-width q-mt-lg"
+          :loading="loading"
+        >
+          <template v-slot:loading>
+            <q-spinner-hourglass></q-spinner-hourglass>
+          </template>
+        </q-btn>
+
+        <q-btn
+          flat
+          color="grey-7"
+          size="sm"
+          class="full-width"
+          @click="goBackToLogin"
+        >
+          Back to Login
+        </q-btn>
+
+        <div v-if="apiError" class="error-message text-center">
+          {{ apiError }}
+        </div>
+      </q-form>
+    </q-card>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        tempPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+        showPassword: false,
+        loading: false,
+        apiError: null,
+        mobileNumber: '<%= @mobile_number %>'
+      }
+    },
+    methods: {
+      async verifyUser() {
+        this.apiError = null;
+        
+        // Validate form
+        if (!this.tempPassword) {
+          this.apiError = 'Temporary password is required';
+          return;
+        }
+        if (!this.newPassword || this.newPassword.length < 6) {
+          this.apiError = 'New password must be at least 6 characters';
+          return;
+        }
+        if (this.newPassword !== this.confirmPassword) {
+          this.apiError = 'Passwords do not match';
+          return;
+        }
+        
+        this.loading = true;
+        try {
+          const response = await fetch('/aruna_solar/api/v1/verify_temp_password', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              mobile_number: this.mobileNumber,
+              temp_password: this.tempPassword,
+              new_password: this.newPassword
+            })
+          });
+          
+          const data = await response.json();
+          
+          if (!response.ok) {
+            if (response.status === 403) {
+              throw new Error("Account locked due to too many failed attempts");
+            } else if (response.status === 401) {
+              throw new Error("Invalid temporary password");
+            } else if (response.status === 404) {
+              throw new Error("User not found");
+            } else {
+              throw new Error(data.error || 'Verification failed');
+            }
+          }
+
+          // Successful verification
+          this.$q.notify({
+            type: 'positive',
+            message: 'Account verified successfully! Redirecting to login...',
+            timeout: 3000
+          });
+          
+          // Redirect to login with the verified account
+          setTimeout(() => {
+            window.location.href = `/login?mobile_number=${encodeURIComponent(this.mobileNumber)}`;
+          }, 2000);
+          
+        } catch (error) {
+          console.error('Error:', error);
+          this.apiError = error.message;
+        } finally {
+          this.loading = false;
+        }
+      },
+      
+      goBackToLogin() {
+        window.location.href = '/login';
+      }
+    }
+  }).use(Quasar);
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

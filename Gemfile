@@ -60,3 +60,15 @@ group :test do
 end
 
 gem "devise", "~> 4.9"
+gem 'jwt'
+gem 'bcrypt'
+gem 'active_model_serializers', '~> 0.10.0'
+
+
+
+gem 'heroicons' # For SVG icons
+gem 'kaminari' # For pagination (if needed)
+
+# Dev tools (optional but recommended)
+gem 'annotate' # For schema annotations
+gem 'rubocop-rails' # For code style

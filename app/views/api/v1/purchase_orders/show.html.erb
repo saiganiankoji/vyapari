@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Purchase Order Details - Aruna Solar</title>
+  
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+  
+  <style>
+    @media print {
+      .q-header,
+      .q-btn {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Orders"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="receipt" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Purchase Order Details</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Order Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div class="row items-center">
+            <q-icon name="receipt" size="xl" color="primary" class="q-mr-md"></q-icon>
+            <div>
+              <div class="text-h4 q-mb-xs">
+                Purchase Order #<%= @purchase_order.po_number %>
+                <q-badge 
+                  :color="getStatusColor('<%= @purchase_order.status %>')" 
+                  label="<%= @purchase_order.status.upcase %>" 
+                  class="q-ml-md"
+                ></q-badge>
+              </div>
+              <div class="text-subtitle1 text-grey-7">
+                Created: <%= @purchase_order.created_at.strftime("%B %d, %Y at %I:%M %p") %>
+                <% if @purchase_order.confirmed_at.present? %>
+                  | Confirmed: <%= @purchase_order.confirmed_at.strftime("%B %d, %Y at %I:%M %p") %>
+                <% end %>
+              </div>
+            </div>
+          </div>
+          <div class="row q-gutter-sm">
+            <% if @purchase_order.can_be_confirmed? %>
+              <q-btn 
+                color="green" 
+                icon="check_circle" 
+                label="Confirm & Receive"
+                @click="confirmOrder"
+                size="lg"
+              ></q-btn>
+            <% end %>
+            <% if @purchase_order.can_be_edited? %>
+              <q-btn 
+                color="orange" 
+                icon="edit" 
+                label="Edit Order"
+                @click="editOrder"
+                size="lg"
+              ></q-btn>
+            <% end %>
+            <% if @purchase_order.pending? %>
+              <q-btn 
+                color="grey-7" 
+                icon="cancel" 
+                label="Cancel Order"
+                @click="cancelOrder"
+                size="lg"
+                outline
+              ></q-btn>
+            <% end %>
+            <% if @purchase_order.can_be_deleted? %>
+              <q-btn 
+                color="red" 
+                icon="delete" 
+                label="Delete Order"
+                @click="deleteOrder"
+                size="lg"
+                outline
+              ></q-btn>
+            <% end %>
+            <q-btn 
+              color="primary" 
+              icon="print" 
+              label="Print"
+              @click="printOrder"
+              outline
+            ></q-btn>
+          </div>
+        </div>
+
+        <!-- Main Content - Full Width Now -->
+        <div class="q-gutter-lg">
+          <!-- Order Information - Horizontal Layout -->
+          <q-card class="q-mb-md">
+            <q-card-section>
+              <div class="text-h6 q-mb-md">
+                <q-icon name="info" class="q-mr-sm"></q-icon>
+                Order Information
+              </div>
+              
+              <div class="row q-gutter-lg">
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="store" color="blue" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Branch</div>
+                      <div class="text-body1 text-weight-medium"><%= @purchase_order.branch_name %></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="event" color="green" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Purchase Date</div>
+                      <div class="text-body1 text-weight-medium"><%= @purchase_order.formatted_purchase_date %></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="numbers" color="orange" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">PO Number</div>
+                      <div class="text-body1 text-weight-medium"><%= @purchase_order.po_number %></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="flag" :color="getStatusColor('<%= @purchase_order.status %>')" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Status</div>
+                      <div>
+                        <q-badge 
+                          :color="getStatusColor('<%= @purchase_order.status %>')" 
+                          label="<%= @purchase_order.status.upcase %>"
+                        ></q-badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="inventory" color="purple" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Items & Quantity</div>
+                      <div class="row q-gutter-xs">
+                        <q-chip color="primary" text-color="white" dense>
+                          <%= @purchase_order_items.count %> items
+                        </q-chip>
+                        <q-chip color="orange" text-color="white" dense>
+                          <%= @purchase_order_items.sum(:quantity) %> units
+                        </q-chip>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="account_balance_wallet" color="green" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Total Amount</div>
+                      <div class="text-h6 text-positive text-weight-bold">
+                        ₹<%= number_with_delimiter(@purchase_order.total_amount) %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <!-- Vendor Information - Horizontal Layout -->
+          <q-card class="q-mb-md">
+            <q-card-section>
+              <div class="text-h6 q-mb-md">
+                <q-icon name="business" class="q-mr-sm"></q-icon>
+                Vendor Information
+              </div>
+              
+              <div class="row q-gutter-lg">
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="business_center" color="blue" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Vendor Name</div>
+                      <div class="text-body1 text-weight-medium"><%= @purchase_order.vendor_name %></div>
+                    </div>
+                  </div>
+                </div>
+                
+                <% if @purchase_order.vendor_mobile_number.present? %>
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="phone" color="green" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Mobile</div>
+                      <div class="text-body1">
+                        <a href="tel:<%= @purchase_order.vendor_mobile_number %>" class="text-primary">
+                          <%= @purchase_order.vendor_mobile_number %>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <% end %>
+                
+                <% if @purchase_order.vendor_gst_number.present? %>
+                <div class="col-auto">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="receipt_long" color="purple" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">GST Number</div>
+                      <div class="text-body1 text-weight-medium"><%= @purchase_order.vendor_gst_number %></div>
+                    </div>
+                  </div>
+                </div>
+                <% end %>
+                
+                <% if @purchase_order.vendor_address.present? %>
+                <div class="col">
+                  <div class="row items-center q-gutter-sm">
+                    <q-icon name="location_on" color="red" size="md"></q-icon>
+                    <div>
+                      <div class="text-caption text-grey-7">Address</div>
+                      <div class="text-body1"><%= @purchase_order.vendor_address %></div>
+                    </div>
+                  </div>
+                </div>
+                <% end %>
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <!-- Order Items -->
+          <q-card>
+            <q-card-section>
+              <div class="text-h6 q-mb-md">
+                <q-icon name="inventory" class="q-mr-sm"></q-icon>
+                Order Items
+              </div>
+              
+              <q-table
+                :rows="orderItems"
+                :columns="itemColumns"
+                row-key="id"
+                flat
+                bordered
+                :pagination="{ rowsPerPage: 0 }"
+              >
+                <template v-slot:body-cell-product="props">
+                  <q-td :props="props">
+                    <div class="text-weight-medium">{{ props.row.product_name }}</div>
+                    <div class="text-caption text-grey-7">{{ props.row.product_code }}</div>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-quantity="props">
+                  <q-td :props="props">
+                    <q-chip color="primary" text-color="white" dense>
+                      {{ props.value }} units
+                    </q-chip>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-unit_cost_price="props">
+                  <q-td :props="props">
+                    ₹{{ formatCurrency(props.value) }}
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-total_price="props">
+                  <q-td :props="props">
+                    <div class="text-weight-bold">
+                      ₹{{ formatCurrency(props.value) }}
+                    </div>
+                  </q-td>
+                </template>
+
+                <template v-slot:bottom-row>
+                  <q-tr>
+                    <q-td colspan="3" class="text-right text-weight-bold text-h6">
+                      Grand Total:
+                    </q-td>
+                    <q-td class="text-weight-bold text-h6 text-positive">
+                      ₹<%= number_with_delimiter(@purchase_order.total_amount) %>
+                    </q-td>
+                  </q-tr>
+                </template>
+              </q-table>
+
+              <% if @purchase_order.notes.present? %>
+              <div class="q-mt-md">
+                <div class="text-subtitle2 text-grey-7 q-mb-sm">Notes:</div>
+                <div class="q-pa-sm bg-grey-2 rounded-borders">
+                  <%= @purchase_order.notes %>
+                </div>
+              </div>
+              <% end %>
+            </q-card-section>
+          </q-card>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        orderId: <%= @purchase_order.id %>,
+        orderStatus: '<%= @purchase_order.status %>',
+        orderItems: [
+          <% @purchase_order_items.each_with_index do |item, index| %>
+            {
+              id: <%= item.id %>,
+              product_name: '<%= j(item.sku_name) %>',
+              product_code: '<%= j(item.sku_code) %>',
+              quantity: <%= item.quantity %>,
+              unit_cost_price: <%= item.unit_cost_price %>,
+              total_price: <%= item.total_price %>
+            }<%= ',' unless index == @purchase_order_items.length - 1 %>
+          <% end %>
+        ],
+        itemColumns: [
+          { name: 'product', label: 'Product', align: 'left', field: 'product_name' },
+          { name: 'quantity', label: 'Quantity', align: 'center', field: 'quantity' },
+          { name: 'unit_cost_price', label: 'Unit Price', align: 'right', field: 'unit_cost_price' },
+          { name: 'total_price', label: 'Total', align: 'right', field: 'total_price' }
+        ]
+      }
+    },
+    methods: {
+      getStatusColor(status) {
+        switch (status) {
+          case 'confirmed': return 'green';
+          case 'pending': return 'orange';
+          case 'cancelled': return 'red';
+          default: return 'grey';
+        }
+      },
+
+      editOrder() {
+        if (this.orderStatus !== 'pending') {
+          this.$q.notify({
+            type: 'warning',
+            message: `Cannot edit ${this.orderStatus} purchase order`
+          });
+          return;
+        }
+        window.location.href = `/purchase_orders/${this.orderId}/edit`;
+      },
+
+      async confirmOrder() {
+        this.$q.dialog({
+          title: 'Confirm Purchase Order',
+          message: 'Are you sure you want to confirm this purchase order? This will update inventory levels and cannot be undone.',
+          cancel: true,
+          persistent: true,
+          ok: {
+            label: 'Confirm & Receive',
+            color: 'primary'
+          }
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/purchase_orders/${this.orderId}/confirm`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.message) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message,
+                timeout: 3000
+              });
+              
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            } else {
+              throw new Error(data.errors?.join(', ') || data.message || 'Failed to confirm order');
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      async cancelOrder() {
+        this.$q.dialog({
+          title: 'Cancel Purchase Order',
+          message: 'Are you sure you want to cancel this purchase order?',
+          cancel: true,
+          persistent: true,
+          ok: {
+            label: 'Cancel Order',
+            color: 'negative'
+          }
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/purchase_orders/${this.orderId}/cancel`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.message) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message
+              });
+              
+              setTimeout(() => {
+                window.location.reload();
+              }, 1500);
+            } else {
+              throw new Error(data.errors?.join(', ') || data.message || 'Failed to cancel order');
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      deleteOrder() {
+        if (this.orderStatus !== 'pending') {
+          this.$q.notify({
+            type: 'warning',
+            message: `Cannot delete ${this.orderStatus} purchase order`
+          });
+          return;
+        }
+        
+        this.$q.dialog({
+          title: 'Confirm Delete',
+          message: 'Are you sure you want to delete this purchase order? This action cannot be undone.',
+          cancel: true,
+          persistent: true,
+          color: 'negative'
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/purchase_orders/${this.orderId}`, {
+              method: 'DELETE',
+              headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message
+              });
+              setTimeout(() => {
+                window.location.href = '/purchase_orders';
+              }, 1000);
+            } else {
+              throw new Error(data.message);
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      printOrder() {
+        window.print();
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      goBack() {
+        window.location.href = '/purchase_orders';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

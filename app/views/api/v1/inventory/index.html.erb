@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventory Management - Aruna Solar</title>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" as="style">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" as="style">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js" as="script">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js" as="script">
+  
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+  
+  <!-- Smart loading styles -->
+  <style>
+    /* Hide app until frameworks load to prevent FOUC */
+    [v-cloak] {
+      display: none !important;
+    }
+    
+    /* Smart loader - only shown if loading takes too long */
+    .smart-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #fafafa;
+      display: none; /* Hidden by default */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .smart-loader.show {
+      display: flex;
+    }
+    
+    .loader-content {
+      text-align: center;
+      animation: fadeInUp 0.3s ease-out;
+    }
+    
+    .loader-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      border: 3px solid #e3f2fd;
+      border-top: 3px solid #1976d2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loader-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #1976d2;
+      margin-bottom: 8px;
+    }
+    
+    .loader-message {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Skeleton fallback for very slow connections */
+    .skeleton-fallback {
+      display: none;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .skeleton-fallback.show {
+      display: block;
+    }
+    
+    .skeleton-header {
+      background: #1976d2;
+      color: white;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      margin: -20px -20px 20px -20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-line {
+      height: 16px;
+      background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .skeleton-line.title {
+      height: 24px;
+      width: 60%;
+    }
+    
+    .skeleton-line.subtitle {
+      width: 40%;
+    }
+    
+    .skeleton-line.full {
+      width: 100%;
+    }
+    
+    .skeleton-line.half {
+      width: 50%;
+    }
+    
+    .skeleton-filter-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .skeleton-filter-item {
+      height: 56px;
+      background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      flex: 1;
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    
+    /* Smooth fade in for the main app */
+    .app-container {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    
+    .app-container.loaded {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Smart loader - only shows if loading takes more than 800ms -->
+<div id="smart-loader" class="smart-loader">
+  <div class="loader-content">
+    <div class="loader-icon"></div>
+    <div class="loader-title">Loading Inventory...</div>
+    <div class="loader-message">Preparing your stock data</div>
+  </div>
+</div>
+
+<!-- Skeleton fallback - only shows if loading takes more than 2 seconds -->
+<div id="skeleton-fallback" class="skeleton-fallback">
+  <div class="skeleton-header">
+    <span style="font-size: 20px; font-weight: 500;">← | 📦 Inventory Management</span>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line title"></div>
+    <div class="skeleton-line subtitle"></div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-filter-row">
+      <div class="skeleton-filter-item"></div>
+      <div class="skeleton-filter-item"></div>
+      <div class="skeleton-filter-item" style="flex: none; width: 100px;"></div>
+    </div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+    <div class="skeleton-line full"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" v-cloak class="app-container">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goToDashboard" icon="arrow_back" label="Dashboard"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="inventory" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Inventory Management</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div>
+            <div class="text-h4 q-mb-sm">
+              <q-icon name="inventory" class="q-mr-sm"></q-icon>
+              Inventory Management
+            </div>
+            <div class="text-subtitle1 text-grey-7">
+              Track and manage your product stock levels across branches
+            </div>
+          </div>
+          <q-btn 
+            color="orange" 
+            icon="warning" 
+            label="Low Stock Alerts" 
+            size="lg"
+            @click="showLowStockDialog"
+            outline
+            :badge="lowStockCount > 0 ? lowStockCount : null"
+            badge-color="red"
+          ></q-btn>
+        </div>
+
+        <!-- Low Stock Alerts Dialog -->
+        <q-dialog v-model="showLowStockDialogFlag" maximized>
+          <q-card>
+            <q-card-section class="row items-center q-pb-none">
+              <div class="text-h6">
+                <q-icon name="warning" color="orange" class="q-mr-sm"></q-icon>
+                Low Stock Alerts (≤ 10 items)
+              </div>
+              <q-space></q-space>
+              <q-btn icon="close" flat round dense v-close-popup></q-btn>
+            </q-card-section>
+
+            <q-card-section v-if="!loadingLowStock && lowStockItems.length === 0">
+              <div class="text-center q-pa-lg">
+                <q-icon name="check_circle" color="green" size="64px" class="q-mb-md"></q-icon>
+                <div class="text-h6 text-green">All Good!</div>
+                <div class="text-body1 text-grey-7">No items with low stock (≤ 10)</div>
+              </div>
+            </q-card-section>
+
+            <q-card-section v-else>
+              <div v-if="lowStockItems.length > 0" class="q-mb-md">
+                <q-banner class="bg-orange-1 text-orange-9">
+                  <template v-slot:avatar>
+                    <q-icon name="warning" color="orange"></q-icon>
+                  </template>
+                  Found {{ lowStockItems.length }} items with stock ≤ 10 units
+                </q-banner>
+              </div>
+
+              <q-table
+                :rows="lowStockItems"
+                :columns="lowStockColumns"
+                :loading="loadingLowStock"
+                row-key="id"
+                flat
+                bordered
+                :pagination="{ rowsPerPage: 0 }"
+              >
+                <template v-slot:body-cell-product="props">
+                  <q-td :props="props">
+                    <div class="text-weight-medium">{{ props.row.sku_name }}</div>
+                    <div class="text-caption text-grey-7">{{ props.row.sku_code }}</div>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-branch_name="props">
+                  <q-td :props="props">
+                    <q-badge color="blue" outline>
+                      {{ props.value }}
+                    </q-badge>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-current_quantity="props">
+                  <q-td :props="props">
+                    <div class="text-h6 text-weight-bold" :class="getUrgencyColor(props.row.urgency)">
+                      {{ props.value }}
+                    </div>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-urgency="props">
+                  <q-td :props="props">
+                    <q-chip 
+                      :color="getUrgencyChipColor(props.value)" 
+                      text-color="white" 
+                      dense
+                    >
+                      {{ props.value.toUpperCase() }}
+                    </q-chip>
+                  </q-td>
+                </template>
+
+                <template v-slot:body-cell-actions="props">
+                  <q-td :props="props">
+                    <q-btn
+                      flat
+                      dense
+                      color="orange"
+                      icon="tune"
+                      @click="adjustStock(props.row)"
+                    >
+                      <q-tooltip>Adjust Stock</q-tooltip>
+                    </q-btn>
+                  </q-td>
+                </template>
+              </q-table>
+            </q-card-section>
+          </q-card>
+        </q-dialog>
+
+        <!-- Filters Card -->
+        <q-card class="q-mb-lg">
+          <q-card-section>
+            <div class="row items-center justify-between q-mb-md">
+              <div class="text-h6">
+                <q-icon name="filter_list" class="q-mr-sm"></q-icon>
+                Filters
+              </div>
+              <q-btn
+                color="grey-6"
+                icon="clear"
+                @click="clearAllFilters"
+                size="sm"
+                outline
+                round
+              >
+                <q-tooltip>Clear All Filters</q-tooltip>
+              </q-btn>
+            </div>
+            <div class="row q-gutter-md">
+              <div class="col-12 col-md-3">
+                <q-select
+                  v-model="filters.branch_id"
+                  filled
+                  label="Branch"
+                  :options="branchOptions"
+                  option-value="value"
+                  option-label="label"
+                  emit-value
+                  map-options
+                  clearable
+                  @update:model-value="applyFilters"
+                ></q-select>
+              </div>
+              <div class="col-12 col-md-4">
+                <q-input
+                  v-model="filters.search"
+                  filled
+                  label="Search products"
+                  placeholder="Search by product name or SKU code"
+                  clearable
+                  @input="onFilterInput"
+                  @clear="onInputClear"
+                  debounce="300"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="search"></q-icon>
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12 col-md-3">
+                <q-select
+                  v-model="filters.stock_filter"
+                  filled
+                  label="Stock Level"
+                  :options="stockFilterOptions"
+                  option-value="value"
+                  option-label="label"
+                  emit-value
+                  map-options
+                  clearable
+                  @update:model-value="applyFilters"
+                ></q-select>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Inventory Table -->
+        <q-card>
+          <q-card-section>
+            <q-table
+              :rows="inventories"
+              :columns="columns"
+              :loading="loading"
+              :pagination="pagination"
+              @request="onRequest"
+              row-key="id"
+              flat
+              bordered
+            >
+              <template v-slot:body-cell-product="props">
+                <q-td :props="props">
+                  <div class="text-weight-medium">{{ props.row.sku_name }}</div>
+                  <div class="text-caption text-grey-7">{{ props.row.sku_code }}</div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-branch_name="props">
+                <q-td :props="props">
+                  <q-badge color="blue" outline>
+                    {{ props.value }}
+                  </q-badge>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-quantity="props">
+                <q-td :props="props">
+                  <div class="text-h6 text-weight-bold" :class="getStockColorClass(props.row)">
+                    {{ props.value }}
+                  </div>
+                  <div class="text-caption text-grey-6">
+                    Min: {{ props.row.min_stock_level }}
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-status="props">
+                <q-td :props="props">
+                  <q-badge 
+                    :color="getStatusBadgeColor(props.row)" 
+                    :label="getStatusLabel(props.row)"
+                  ></q-badge>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-actions="props">
+                <q-td :props="props">
+                  <q-btn-group flat>
+                    <q-btn
+                      flat
+                      dense
+                      color="purple"
+                      icon="history"
+                      @click="viewTransactions(props.row.id)"
+                    >
+                      <q-tooltip>View Transaction History</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      flat
+                      dense
+                      color="orange"
+                      icon="tune"
+                      @click="adjustStock(props.row)"
+                    >
+                      <q-tooltip>Adjust Stock</q-tooltip>
+                    </q-btn>
+                  </q-btn-group>
+                </q-td>
+              </template>
+
+              <!-- Custom pagination slot -->
+              <template v-slot:bottom>
+                <div class="full-width row justify-between items-center">
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">Rows per page:</span>
+                    <q-select
+                      v-model="pagination.rowsPerPage"
+                      :options="rowsPerPageOptions"
+                      dense
+                      outlined
+                      @update:model-value="onRowsPerPageChange"
+                      style="min-width: 80px"
+                    />
+                  </div>
+                  
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">
+                      {{ getResultsText() }}
+                    </span>
+                  </div>
+
+                  <q-pagination
+                    v-model="pagination.page"
+                    :max="pagination.totalPages"
+                    :max-pages="6"
+                    direction-links
+                    boundary-links
+                    @update:model-value="onPageChange"
+                  />
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
+        <!-- Stock Adjustment Dialog -->
+        <q-dialog v-model="showAdjustDialog" persistent>
+          <q-card style="min-width: 400px;">
+            <q-card-section>
+              <div class="text-h6">Adjust Stock</div>
+              <div class="text-subtitle2 text-grey-7">
+                {{ selectedInventory?.sku_name }} ({{ selectedInventory?.sku_code }})
+              </div>
+            </q-card-section>
+
+            <q-card-section>
+              <div class="q-mb-md">
+                <div class="text-body2 q-mb-sm">Current Stock: <strong>{{ selectedInventory?.quantity }}</strong></div>
+              </div>
+
+              <q-select
+                v-model="adjustmentForm.adjustment_type"
+                filled
+                label="Adjustment Type"
+                :options="adjustmentTypeOptions"
+                option-value="value"
+                option-label="label"
+                emit-value
+                map-options
+                class="q-mb-md"
+              ></q-select>
+
+              <q-input
+                v-model.number="adjustmentForm.quantity"
+                filled
+                label="Quantity"
+                type="number"
+                min="1"
+                :rules="[val => val > 0 || 'Quantity must be greater than 0']"
+                class="q-mb-md"
+              ></q-input>
+
+              <q-input
+                v-model="adjustmentForm.notes"
+                filled
+                label="Notes (Optional)"
+                type="textarea"
+                rows="2"
+              ></q-input>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <q-btn flat label="Cancel" @click="closeAdjustDialog"></q-btn>
+              <q-btn 
+                color="primary" 
+                label="Adjust Stock" 
+                @click="submitAdjustment"
+                :loading="adjusting"
+              ></q-btn>
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Smart loading logic
+  const smartLoader = document.getElementById('smart-loader');
+  const skeletonFallback = document.getElementById('skeleton-fallback');
+  const appContainer = document.getElementById('app');
+  
+  let loadingTimers = {
+    showLoader: null,
+    showSkeleton: null
+  };
+  
+  // Show simple loader only if loading takes more than 800ms
+  loadingTimers.showLoader = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.add('show');
+    }
+  }, 800);
+  
+  // Show skeleton only if loading takes more than 2 seconds (very slow connection)
+  loadingTimers.showSkeleton = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.add('show');
+    }
+  }, 2000);
+  
+  function hideAllLoaders() {
+    // Clear all timers
+    Object.values(loadingTimers).forEach(timer => {
+      if (timer) clearTimeout(timer);
+    });
+    
+    // Hide all loading screens
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.remove('show');
+    }
+    
+    // Show the app with smooth transition
+    if (appContainer) {
+      appContainer.classList.add('loaded');
+    }
+  }
+
+  const app = Vue.createApp({
+    data() {
+      return {
+        inventories: [],
+        loading: false,
+        adjusting: false,
+        loadingLowStock: false,
+        showAdjustDialog: false,
+        showLowStockDialogFlag: false,
+        selectedInventory: null,
+        lowStockItems: [],
+        lowStockCount: 0,
+        branchOptions: [],
+        filters: {
+          branch_id: null,
+          search: '',
+          stock_filter: null
+        },
+        adjustmentForm: {
+          adjustment_type: 'add',
+          quantity: 1,
+          notes: ''
+        },
+        pagination: {
+          sortBy: 'sku_name',
+          descending: false,
+          page: 1,
+          rowsPerPage: 20,
+          rowsNumber: 0,
+          totalPages: 0
+        },
+        rowsPerPageOptions: [10, 20, 30, 50],
+        stockFilterOptions: [
+          { label: 'All Stock', value: null },
+          { label: 'In Stock', value: 'in_stock' },
+          { label: 'Low Stock', value: 'low_stock' },
+          { label: 'Out of Stock', value: 'out_of_stock' }
+        ],
+        adjustmentTypeOptions: [
+          { label: 'Add Stock', value: 'add' },
+          { label: 'Remove Stock', value: 'remove' },
+          { label: 'Set Quantity', value: 'set' }
+        ],
+        columns: [
+          { name: 'product', label: 'Product', align: 'left', field: 'sku_name', sortable: true },
+          { name: 'branch_name', label: 'Branch', align: 'left', field: 'branch_name', sortable: true },
+          { name: 'quantity', label: 'Stock Quantity', align: 'center', field: 'quantity', sortable: true },
+          { name: 'status', label: 'Status', align: 'center', field: 'stock_status' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ],
+        lowStockColumns: [
+          { name: 'product', label: 'Product', align: 'left', field: 'sku_name' },
+          { name: 'branch_name', label: 'Branch', align: 'left', field: 'branch_name' },
+          { name: 'current_quantity', label: 'Current Stock', align: 'center', field: 'quantity' },
+          { name: 'min_stock_level', label: 'Min Required', align: 'center', field: 'min_stock_level' },
+          { name: 'urgency', label: 'Urgency', align: 'center', field: 'urgency' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    mounted() {
+      // Hide all loaders and show app
+      hideAllLoaders();
+      this.loadOptions();
+      this.loadInventories();
+      this.loadLowStockCount();
+    },
+    methods: {
+      async loadOptions() {
+        try {
+          const response = await fetch('/aruna_solar/api/v1/inventory/options', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branchOptions = data.branches.map(branch => ({
+              label: branch.name,
+              value: branch.id
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading options:', error);
+        }
+      },
+
+      async loadInventories() {
+        this.loading = true;
+        try {
+          // Ensure per_page is never 0 or invalid
+          const perPage = Math.max(1, this.pagination.rowsPerPage || 20);
+          
+          const params = new URLSearchParams({
+            page: this.pagination.page || 1,
+            per_page: perPage,
+            ...this.getCleanFilters()
+          });
+
+          const response = await fetch(`/aruna_solar/api/v1/inventory/list?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.inventories = data.data.inventories;
+            this.pagination.rowsNumber = data.data.pagination.total_count;
+            this.pagination.totalPages = data.data.pagination.total_pages;
+          } else {
+            throw new Error(data.message || 'Failed to load inventory');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      async loadLowStockCount() {
+        try {
+          const response = await fetch('/aruna_solar/api/v1/inventory/low_stock', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.lowStockCount = data.data.total_count || 0;
+          }
+        } catch (error) {
+          console.error('Error loading low stock count:', error);
+        }
+      },
+
+      async showLowStockDialog() {
+        this.showLowStockDialogFlag = true;
+        await this.loadLowStockItems();
+      },
+
+      async loadLowStockItems() {
+        this.loadingLowStock = true;
+        try {
+          const response = await fetch('/aruna_solar/api/v1/inventory/low_stock', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.lowStockItems = data.data.low_stock_items;
+            this.lowStockCount = data.data.total_count || 0;
+          } else {
+            throw new Error(data.message || 'Failed to load low stock items');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.loadingLowStock = false;
+        }
+      },
+
+      // Get only non-empty filter values
+      getCleanFilters() {
+        const cleanFilters = {};
+        
+        if (this.filters.branch_id !== null && this.filters.branch_id !== '') {
+          cleanFilters.branch_id = this.filters.branch_id;
+        }
+        if (this.filters.search && this.filters.search.trim() !== '') {
+          cleanFilters.search = this.filters.search;
+        }
+        if (this.filters.stock_filter !== null && this.filters.stock_filter !== '') {
+          cleanFilters.stock_filter = this.filters.stock_filter;
+        }
+        
+        return cleanFilters;
+      },
+
+      // Apply filters and reset to page 1
+      applyFilters() {
+        this.pagination.page = 1;
+        this.loadInventories();
+      },
+
+      // Handle input field changes (debounced)
+      onFilterInput() {
+        this.applyFilters();
+      },
+
+      // Handle input clear button (X)
+      onInputClear() {
+        this.$nextTick(() => {
+          this.applyFilters();
+        });
+      },
+
+      // Clear all filters
+      clearAllFilters() {
+        this.filters = {
+          branch_id: null,
+          search: '',
+          stock_filter: null
+        };
+        this.pagination.page = 1;
+        this.loadInventories();
+      },
+
+      // Handle pagination request
+      onRequest(props) {
+        this.pagination.page = props.pagination.page;
+        this.pagination.rowsPerPage = Math.max(1, props.pagination.rowsPerPage || 20);
+        this.pagination.sortBy = props.pagination.sortBy;
+        this.pagination.descending = props.pagination.descending;
+        this.loadInventories();
+      },
+
+      // Handle page change
+      onPageChange(page) {
+        this.pagination.page = page;
+        this.loadInventories();
+      },
+
+      // Handle rows per page change
+      onRowsPerPageChange(rowsPerPage) {
+        this.pagination.rowsPerPage = Math.max(1, rowsPerPage || 20);
+        this.pagination.page = 1; // Reset to first page
+        this.loadInventories();
+      },
+
+      // Get results text for pagination
+      getResultsText() {
+        const start = ((this.pagination.page - 1) * this.pagination.rowsPerPage) + 1;
+        const end = Math.min(this.pagination.page * this.pagination.rowsPerPage, this.pagination.rowsNumber);
+        return `${start}-${end} of ${this.pagination.rowsNumber}`;
+      },
+
+      // Get stock quantity color class
+      getStockColorClass(inventory) {
+        if (inventory.quantity === 0) {
+          return 'text-red';
+        } else if (inventory.quantity <= inventory.min_stock_level) {
+          return 'text-orange';
+        } else {
+          return 'text-green';
+        }
+      },
+
+      // Get status badge color
+      getStatusBadgeColor(inventory) {
+        if (inventory.quantity === 0) {
+          return 'red';
+        } else if (inventory.quantity <= inventory.min_stock_level) {
+          return 'orange';
+        } else {
+          return 'green';
+        }
+      },
+
+      // Get status label
+      getStatusLabel(inventory) {
+        if (inventory.quantity === 0) {
+          return 'Out of Stock';
+        } else if (inventory.quantity <= inventory.min_stock_level) {
+          return 'Low Stock';
+        } else {
+          return 'In Stock';
+        }
+      },
+
+      // Get urgency color for low stock items
+      getUrgencyColor(urgency) {
+        switch(urgency) {
+          case 'critical': return 'text-red';
+          case 'high': return 'text-orange';
+          case 'medium': return 'text-yellow-8';
+          default: return 'text-grey-8';
+        }
+      },
+
+      // Get urgency chip color
+      getUrgencyChipColor(urgency) {
+        switch(urgency) {
+          case 'critical': return 'red';
+          case 'high': return 'orange';
+          case 'medium': return 'yellow';
+          default: return 'grey';
+        }
+      },
+
+      viewTransactions(inventoryId) {
+        window.location.href = `/inventory/${inventoryId}/transactions`;
+      },
+
+      adjustStock(inventory) {
+        this.selectedInventory = inventory;
+        this.adjustmentForm = {
+          adjustment_type: 'add',
+          quantity: 1,
+          notes: ''
+        };
+        this.showAdjustDialog = true;
+      },
+
+      closeAdjustDialog() {
+        this.showAdjustDialog = false;
+        this.selectedInventory = null;
+      },
+
+      async submitAdjustment() {
+        if (!this.adjustmentForm.quantity || this.adjustmentForm.quantity <= 0) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please enter a valid quantity'
+          });
+          return;
+        }
+
+        this.adjusting = true;
+        try {
+          const response = await fetch('/aruna_solar/api/v1/inventory/adjust', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+              inventory_id: this.selectedInventory.id,
+              adjustment_type: this.adjustmentForm.adjustment_type,
+              quantity: this.adjustmentForm.quantity,
+              notes: this.adjustmentForm.notes
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            this.closeAdjustDialog();
+            this.loadInventories();
+            this.loadLowStockCount(); // Refresh the count
+          } else {
+            throw new Error(data.errors?.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.adjusting = false;
+        }
+      },
+
+      goToDashboard() {
+        window.location.href = '/dashboard';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

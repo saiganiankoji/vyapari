@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Product SKU Management - Aruna Solar</title>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" as="style">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" as="style">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js" as="script">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js" as="script">
+  
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+  
+  <!-- Smart loading styles -->
+  <style>
+    /* Hide app until frameworks load to prevent FOUC */
+    [v-cloak] {
+      display: none !important;
+    }
+    
+    /* Smart loader - only shown if loading takes too long */
+    .smart-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #fafafa;
+      display: none; /* Hidden by default */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .smart-loader.show {
+      display: flex;
+    }
+    
+    .loader-content {
+      text-align: center;
+      animation: fadeInUp 0.3s ease-out;
+    }
+    
+    .loader-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      border: 3px solid #e3f2fd;
+      border-top: 3px solid #1976d2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loader-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #1976d2;
+      margin-bottom: 8px;
+    }
+    
+    .loader-message {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Skeleton fallback for very slow connections */
+    .skeleton-fallback {
+      display: none;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .skeleton-fallback.show {
+      display: block;
+    }
+    
+    .skeleton-header {
+      background: #1976d2;
+      color: white;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      margin: -20px -20px 20px -20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-line {
+      height: 16px;
+      background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .skeleton-line.title {
+      height: 24px;
+      width: 60%;
+    }
+    
+    .skeleton-line.subtitle {
+      width: 40%;
+    }
+    
+    .skeleton-line.full {
+      width: 100%;
+    }
+    
+    .skeleton-line.half {
+      width: 50%;
+    }
+    
+    .skeleton-filter-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .skeleton-filter-item {
+      height: 56px;
+      background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      flex: 1;
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    
+    /* Smooth fade in for the main app */
+    .app-container {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    
+    .app-container.loaded {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Smart loader - only shows if loading takes more than 800ms -->
+<div id="smart-loader" class="smart-loader">
+  <div class="loader-content">
+    <div class="loader-icon"></div>
+    <div class="loader-title">Loading Products...</div>
+    <div class="loader-message">Preparing your SKU catalog</div>
+  </div>
+</div>
+
+<!-- Skeleton fallback - only shows if loading takes more than 2 seconds -->
+<div id="skeleton-fallback" class="skeleton-fallback">
+  <div class="skeleton-header">
+    <span style="font-size: 20px; font-weight: 500;">← | 📦 SKU Product Management</span>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line title"></div>
+    <div class="skeleton-line subtitle"></div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-filter-row">
+      <div class="skeleton-filter-item"></div>
+      <div class="skeleton-filter-item"></div>
+      <div class="skeleton-filter-item" style="flex: none; width: 100px;"></div>
+      <div class="skeleton-filter-item" style="flex: none; width: 100px;"></div>
+    </div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+    <div class="skeleton-line full"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" v-cloak class="app-container">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goToDashboard" icon="arrow_back" label="Dashboard"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="inventory_2" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>SKU Product Management</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div>
+            <div class="text-h4 q-mb-sm">
+              <q-icon name="inventory_2" class="q-mr-sm"></q-icon>
+              SKU Products
+            </div>
+            <div class="text-subtitle1 text-grey-7">
+              Manage your product catalog and inventory
+            </div>
+          </div>
+          <q-btn 
+            color="primary" 
+            icon="add" 
+            label="Add Product" 
+            size="lg"
+            @click="showCreateDialog = true"
+            class="q-px-lg"
+          ></q-btn>
+        </div>
+
+        <!-- Filters Card -->
+        <q-card class="q-mb-lg">
+          <q-card-section>
+            <div class="text-h6 q-mb-md">
+              <q-icon name="filter_list" class="q-mr-sm"></q-icon>
+              Filters
+            </div>
+            <div class="row q-gutter-md">
+              <div class="col-12 col-md-4">
+                <q-input
+                  v-model="filters.by_name"
+                  filled
+                  label="Search by product name"
+                  placeholder="Enter product name"
+                  @keyup.enter="applyFilters"
+                  @clear="onInputClear"
+                  @input="onFilterInput"
+                  clearable
+                  debounce="300"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="search"></q-icon>
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12 col-md-3">
+                <q-input
+                  v-model="filters.by_code"
+                  filled
+                  label="SKU Code"
+                  placeholder="Enter SKU code"
+                  @keyup.enter="applyFilters"
+                  @clear="onInputClear"
+                  @input="onFilterInput"
+                  clearable
+                  debounce="300"
+                ></q-input>
+              </div>
+              <div class="col-12 col-md-2">
+                <q-btn
+                  color="primary"
+                  icon="search"
+                  label="Search"
+                  @click="applyFilters"
+                  class="full-width"
+                  size="md"
+                ></q-btn>
+              </div>
+              <div class="col-12 col-md-2">
+                <q-btn
+                  color="grey-6"
+                  icon="clear"
+                  label="Clear All"
+                  @click="clearAllFilters"
+                  class="full-width"
+                  size="md"
+                  outline
+                ></q-btn>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Products Table -->
+        <q-card>
+          <q-card-section>
+            <q-table
+              :rows="products"
+              :columns="columns"
+              :loading="loading"
+              :pagination="pagination"
+              @request="onRequest"
+              row-key="id"
+              flat
+              bordered
+            >
+              <template v-slot:body-cell-sku_code="props">
+                <q-td :props="props">
+                  <q-badge color="blue" outline>
+                    {{ props.value }}
+                  </q-badge>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-description="props">
+                <q-td :props="props" style="max-width: 300px;">
+                  <div class="ellipsis" :title="props.value">
+                    {{ props.value || 'No description' }}
+                  </div>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-created_at="props">
+                <q-td :props="props">
+                  {{ formatDate(props.value) }}
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-actions="props">
+                <q-td :props="props">
+                  <q-btn
+                    flat
+                    dense
+                    color="orange"
+                    icon="edit"
+                    @click="editProduct(props.row)"
+                  >
+                    <q-tooltip>Edit Product</q-tooltip>
+                  </q-btn>
+                </q-td>
+              </template>
+
+              <!-- Custom pagination slot -->
+              <template v-slot:bottom>
+                <div class="full-width row justify-between items-center">
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">Rows per page:</span>
+                    <q-select
+                      v-model="pagination.rowsPerPage"
+                      :options="rowsPerPageOptions"
+                      dense
+                      outlined
+                      @update:model-value="onRowsPerPageChange"
+                      style="min-width: 80px"
+                    />
+                  </div>
+                  
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">
+                      {{ getResultsText() }}
+                    </span>
+                  </div>
+
+                  <q-pagination
+                    v-model="pagination.page"
+                    :max="pagination.totalPages"
+                    :max-pages="6"
+                    direction-links
+                    boundary-links
+                    @update:model-value="onPageChange"
+                  />
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
+        <!-- Create/Edit Dialog -->
+        <q-dialog v-model="showCreateDialog" persistent>
+          <q-card style="min-width: 600px;">
+            <q-card-section>
+              <div class="text-h6">{{ editingProduct ? 'Edit Product' : 'Create New Product' }}</div>
+            </q-card-section>
+
+            <q-card-section>
+              <q-form @submit="saveProduct" class="q-gutter-md">
+                <q-input
+                  v-model="productForm.sku_name"
+                  filled
+                  label="Product Name *"
+                  placeholder="Enter product name"
+                  :rules="[val => !!val || 'Product name is required']"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="inventory"></q-icon>
+                  </template>
+                </q-input>
+
+                <q-input
+                  v-model="productForm.sku_code"
+                  filled
+                  label="SKU Code *"
+                  placeholder="Enter unique SKU code"
+                  :rules="[val => !!val || 'SKU code is required']"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="qr_code"></q-icon>
+                  </template>
+                </q-input>
+
+                <q-input
+                  v-model="productForm.description"
+                  filled
+                  label="Description"
+                  type="textarea"
+                  rows="3"
+                  placeholder="Enter product description (optional)"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="description"></q-icon>
+                  </template>
+                </q-input>
+              </q-form>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <q-btn flat label="Cancel" @click="closeDialog"></q-btn>
+              <q-btn 
+                color="primary" 
+                :label="editingProduct ? 'Update' : 'Create'" 
+                @click="saveProduct"
+                :loading="saving"
+              ></q-btn>
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Smart loading logic
+  const smartLoader = document.getElementById('smart-loader');
+  const skeletonFallback = document.getElementById('skeleton-fallback');
+  const appContainer = document.getElementById('app');
+  
+  let loadingTimers = {
+    showLoader: null,
+    showSkeleton: null
+  };
+  
+  // Show simple loader only if loading takes more than 800ms
+  loadingTimers.showLoader = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.add('show');
+    }
+  }, 800);
+  
+  // Show skeleton only if loading takes more than 2 seconds (very slow connection)
+  loadingTimers.showSkeleton = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.add('show');
+    }
+  }, 2000);
+  
+  function hideAllLoaders() {
+    // Clear all timers
+    Object.values(loadingTimers).forEach(timer => {
+      if (timer) clearTimeout(timer);
+    });
+    
+    // Hide all loading screens
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.remove('show');
+    }
+    
+    // Show the app with smooth transition
+    if (appContainer) {
+      appContainer.classList.add('loaded');
+    }
+  }
+
+  const app = Vue.createApp({
+    data() {
+      return {
+        products: [],
+        loading: false,
+        saving: false,
+        showCreateDialog: false,
+        editingProduct: null,
+        filters: {
+          by_name: '',
+          by_code: ''
+        },
+        productForm: {
+          sku_name: '',
+          sku_code: '',
+          description: ''
+        },
+        pagination: {
+          sortBy: 'created_at',
+          descending: true,
+          page: 1,
+          rowsPerPage: 10,
+          rowsNumber: 0,
+          totalPages: 0
+        },
+        rowsPerPageOptions: [10, 20, 30, 50],
+        columns: [
+          { name: 'sku_name', required: true, label: 'Product Name', align: 'left', field: 'sku_name', sortable: true },
+          { name: 'sku_code', label: 'SKU Code', align: 'left', field: 'sku_code', sortable: true },
+          { name: 'description', label: 'Description', align: 'left', field: 'description' },
+          { name: 'created_at', label: 'Created', align: 'left', field: 'created_at', sortable: true },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    mounted() {
+      // Hide all loaders and show app
+      hideAllLoaders();
+      this.loadProducts();
+    },
+    methods: {
+      async loadProducts() {
+        this.loading = true;
+        try {
+          // Ensure per_page is never 0 or invalid
+          const perPage = Math.max(1, this.pagination.rowsPerPage || 10);
+          
+          const params = new URLSearchParams({
+            page: this.pagination.page || 1,
+            per_page: perPage,
+            ...this.getCleanFilters()
+          });
+
+          const response = await fetch(`/aruna_solar/api/v1/product_skus/list?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.products = data.data.product_skus;
+            this.pagination.rowsNumber = data.data.pagination.total_count;
+            this.pagination.totalPages = data.data.pagination.total_pages;
+          } else {
+            throw new Error(data.message || 'Failed to load products');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      // Get only non-empty filter values
+      getCleanFilters() {
+        const cleanFilters = {};
+        Object.keys(this.filters).forEach(key => {
+          if (this.filters[key] && this.filters[key].toString().trim() !== '') {
+            cleanFilters[key] = this.filters[key];
+          }
+        });
+        return cleanFilters;
+      },
+
+      // Apply filters and reset to page 1
+      applyFilters() {
+        this.pagination.page = 1;
+        this.loadProducts();
+      },
+
+      // Handle input field changes (debounced)
+      onFilterInput() {
+        // This will trigger automatically due to debounce
+        this.applyFilters();
+      },
+
+      // Handle input clear button (X)
+      onInputClear() {
+        this.$nextTick(() => {
+          this.applyFilters();
+        });
+      },
+
+      // Clear all filters
+      clearAllFilters() {
+        this.filters = {
+          by_name: '',
+          by_code: ''
+        };
+        this.pagination.page = 1;
+        this.loadProducts();
+      },
+
+      // Handle pagination request
+      onRequest(props) {
+        this.pagination.page = props.pagination.page;
+        this.pagination.rowsPerPage = Math.max(1, props.pagination.rowsPerPage || 10);
+        this.pagination.sortBy = props.pagination.sortBy;
+        this.pagination.descending = props.pagination.descending;
+        this.loadProducts();
+      },
+
+      // Handle page change
+      onPageChange(page) {
+        this.pagination.page = page;
+        this.loadProducts();
+      },
+
+      // Handle rows per page change
+      onRowsPerPageChange(rowsPerPage) {
+        this.pagination.rowsPerPage = Math.max(1, rowsPerPage || 10);
+        this.pagination.page = 1; // Reset to first page
+        this.loadProducts();
+      },
+
+      // Get results text for pagination
+      getResultsText() {
+        const start = ((this.pagination.page - 1) * this.pagination.rowsPerPage) + 1;
+        const end = Math.min(this.pagination.page * this.pagination.rowsPerPage, this.pagination.rowsNumber);
+        return `${start}-${end} of ${this.pagination.rowsNumber}`;
+      },
+
+      // Format date for display
+      formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      },
+
+      resetForm() {
+        this.productForm = {
+          sku_name: '',
+          sku_code: '',
+          description: ''
+        };
+        this.editingProduct = null;
+      },
+
+      editProduct(product) {
+        this.editingProduct = product;
+        this.productForm = { ...product };
+        this.showCreateDialog = true;
+      },
+
+      async saveProduct() {
+        // Validation
+        if (!this.productForm.sku_name || !this.productForm.sku_code) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Product name and SKU code are required'
+          });
+          return;
+        }
+
+        this.saving = true;
+        try {
+          const url = this.editingProduct 
+            ? `/aruna_solar/api/v1/product_skus/${this.editingProduct.id}`
+            : '/aruna_solar/api/v1/product_skus';
+          
+          const method = this.editingProduct ? 'PUT' : 'POST';
+
+          const response = await fetch(url, {
+            method: method,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ product_sku: this.productForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            this.closeDialog();
+            this.loadProducts();
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      closeDialog() {
+        this.showCreateDialog = false;
+        this.resetForm();
+      },
+
+      goToDashboard() {
+        window.location.href = '/dashboard';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

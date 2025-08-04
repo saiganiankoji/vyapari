@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login - ArunaSolar</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+    }
+    .error-message {
+      color: #ff5252;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="row justify-center items-center" style="height: 100vh;">
+      <q-card class="login-card q-pa-xl">
+        <q-card-section class="text-center">
+          <q-icon name="wb_sunny" size="xl" color="amber-5"></q-icon>
+          <div class="text-h4 q-mt-sm">ArunaSolar</div>
+          <div class="text-subtitle1 text-grey-7">Solar Management Portal</div>
+        </q-card-section>
+
+        <!-- Step 1: Mobile Number Input -->
+        <div v-if="currentStep === 'mobile'">
+          <q-form @submit.prevent="checkUser" class="q-gutter-md">
+            <q-input
+              v-model.trim="mobileNumber"
+              filled
+              label="Mobile Number"
+              placeholder="10 digit mobile number"
+              type="tel"
+              maxlength="10"
+              :rules="mobileRules"
+              lazy-rules
+              ref="mobileInput"
+              @keyup.enter="checkUser"
+            >
+              <template v-slot:prepend>
+                <q-icon name="phone"></q-icon>
+              </template>
+            </q-input>
+
+            <q-btn
+              color="primary"
+              size="lg"
+              class="full-width q-mt-lg"
+              :loading="isLoading"
+              @click="checkUser"
+            >
+              Continue
+              <template v-slot:loading>
+                <q-spinner-hourglass></q-spinner-hourglass>
+              </template>
+            </q-btn>
+
+            <div v-if="apiError" class="error-message text-center">
+              {{ apiError }}
+            </div>
+          </q-form>
+        </div>
+
+        <!-- Step 2: Password Input (Verified User) -->
+        <div v-if="currentStep === 'password'">
+          <q-card-section class="text-center q-pb-none">
+            <div class="text-h6">Welcome Back!</div>
+            <div class="text-subtitle2 text-grey-7">{{ mobileNumber }}</div>
+          </q-card-section>
+
+          <q-form @submit.prevent="loginUser" class="q-gutter-md">
+            <q-input
+              v-model="password"
+              filled
+              label="Password"
+              :type="showPassword ? 'text' : 'password'"
+              :rules="[val => !!val || 'Password is required']"
+              @keyup.enter="loginUser"
+            >
+              <template v-slot:prepend>
+                <q-icon name="lock"></q-icon>
+              </template>
+              <template v-slot:append>
+                <q-icon
+                  :name="showPassword ? 'visibility_off' : 'visibility'"
+                  @click="showPassword = !showPassword"
+                  class="cursor-pointer"
+                ></q-icon>
+              </template>
+            </q-input>
+
+            <q-btn
+              color="primary"
+              size="lg"
+              class="full-width q-mt-lg"
+              :loading="isLoading"
+              @click="loginUser"
+            >
+              Login
+              <template v-slot:loading>
+                <q-spinner-hourglass></q-spinner-hourglass>
+              </template>
+            </q-btn>
+
+            <q-btn
+              flat
+              color="grey-7"
+              size="sm"
+              class="full-width"
+              @click="goBack"
+            >
+              Use different number
+            </q-btn>
+
+            <div v-if="apiError" class="error-message text-center">
+              {{ apiError }}
+            </div>
+          </q-form>
+        </div>
+
+      </q-card>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const app = Vue.createApp({
+      data() {
+        return {
+          currentStep: 'mobile', // 'mobile' or 'password'
+          mobileNumber: '<%= @mobile_number %>',
+          password: '',
+          showPassword: false,
+          isLoading: false,
+          apiError: null,
+          mobileRules: [
+            val => !!val || 'Mobile number is required',
+            val => val.length === 10 || 'Mobile number must be 10 digits',
+            val => /^[0-9]+$/.test(val) || 'Mobile number must contain only digits'
+          ]
+        }
+      },
+      mounted() {
+        // If mobile number is pre-filled, start at mobile step
+        if (this.mobileNumber) {
+          this.currentStep = 'mobile';
+        }
+      },
+      methods: {
+        async checkUser() {
+          this.apiError = null;
+          if (!this.validateMobile()) return;
+          
+          this.isLoading = true;
+          try {
+            const response = await fetch('/aruna_solar/api/v1/check_user', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              },
+              body: JSON.stringify({ mobile_number: this.mobileNumber })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+              throw new Error(data.error || 'Failed to check user');
+            }
+
+            // Handle successful response
+            if (data.data.is_user_verified) {
+              // User is verified, show password input
+              this.currentStep = 'password';
+            } else {
+              // User is not verified, redirect to verification page
+              this.$q.notify({
+                type: 'positive',
+                message: `Temporary password sent to ${this.mobileNumber}`,
+                timeout: 3000
+              });
+              window.location.href = `/verify?mobile_number=${encodeURIComponent(this.mobileNumber)}`;
+            }
+          } catch (error) {
+            console.error('Error:', error);
+            this.apiError = error.message;
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        
+        async loginUser() {
+          this.apiError = null;
+          if (!this.password) {
+            this.apiError = 'Password is required';
+            return;
+          }
+          
+          this.isLoading = true;
+          try {
+            const response = await fetch('/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+                'Accept': 'application/json'
+              },
+              body: JSON.stringify({ 
+                mobile_number: this.mobileNumber,
+                password: this.password 
+              })
+            });
+
+            // Check if response is actually JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+              const textResponse = await response.text();
+              console.error('Non-JSON response received:', textResponse);
+              throw new Error('Server returned an invalid response. Please check your login credentials.');
+            }
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+              throw new Error(data.error || 'Login failed');
+            }
+
+            // Successful login
+            this.$q.notify({
+              type: 'positive',
+              message: 'Login successful!',
+              timeout: 2000
+            });
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+              window.location.href = data.data.redirect_to || '/dashboard';
+            }, 1000);
+            
+          } catch (error) {
+            console.error('Login Error:', error);
+            if (error.message.includes('JSON')) {
+              this.apiError = 'Server error. Please try again.';
+            } else {
+              this.apiError = error.message;
+            }
+          } finally {
+            this.isLoading = false;
+          }
+        },
+        
+        validateMobile() {
+          return this.mobileRules.every(rule => rule(this.mobileNumber) === true);
+        },
+        
+        goBack() {
+          this.currentStep = 'mobile';
+          this.password = '';
+          this.apiError = null;
+        }
+      }
+    }).use(Quasar);
+    
+    app.mount('#app');
+  });
+  </script>
+</body>
+</html>

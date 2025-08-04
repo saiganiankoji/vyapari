@@ -1,0 +1,591 @@
+<!-- app/views/api/v1/sales/payment_form.html.erb -->
+<style>
+  [v-cloak] {
+    display: none;
+  }
+  
+  .amount-summary {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .payment-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+  }
+</style>
+
+<div id="app" v-cloak>
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Sale"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="payment" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Add Payment</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Loading State -->
+        <div v-if="loading" class="text-center q-pa-xl">
+          <q-spinner-grid size="50px" color="primary"></q-spinner-grid>
+          <div class="q-mt-md text-h6">Loading payment form...</div>
+        </div>
+        
+        <div v-else class="row justify-center">
+          <div class="col-12 col-lg-10">
+
+            <!-- Sale Information Card -->
+            <q-card class="q-mb-lg">
+              <q-card-section>
+                <div class="row items-center justify-between q-mb-md">
+                  <div>
+                    <div class="text-h5 text-primary">{{ saleData.invoice_number }}</div>
+                    <div class="text-subtitle1 text-grey-7">{{ saleData.customer_name }}</div>
+                  </div>
+                  <q-badge 
+                    :color="getStatusColor(saleData.payment_status, saleData.is_overdue)" 
+                    :label="saleData.payment_status.toUpperCase()"
+                    class="q-pa-sm"
+                  ></q-badge>
+                </div>
+                
+                <!-- Amount Summary -->
+                <div class="amount-summary">
+                  <div class="row q-gutter-md">
+                    <div class="col-12 col-md-4">
+                      <div class="text-center">
+                        <q-icon name="account_balance_wallet" size="lg" color="blue" class="q-mb-sm"></q-icon>
+                        <div class="text-h5 text-blue">₹{{ formatCurrency(saleData.final_amount) }}</div>
+                        <div class="text-caption text-grey-7">Total Amount</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <div class="text-center">
+                        <q-icon name="check_circle" size="lg" color="green" class="q-mb-sm"></q-icon>
+                        <div class="text-h5 text-green">₹{{ formatCurrency(saleData.paid_amount) }}</div>
+                        <div class="text-caption text-grey-7">Paid Amount</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <div class="text-center">
+                        <q-icon name="pending" size="lg" color="red" class="q-mb-sm"></q-icon>
+                        <div class="text-h5 text-red">₹{{ formatCurrency(saleData.due_amount) }}</div>
+                        <div class="text-caption text-grey-7">Due Amount</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Payment Form Card -->
+            <q-card class="q-mb-lg">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="add" class="q-mr-sm text-primary"></q-icon>
+                  Add New Payment
+                </div>
+                
+                <q-form @submit="onSubmit" class="q-gutter-md">
+                  <div class="row q-gutter-md">
+                    <!-- Payment Amount -->
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model.number="paymentForm.amount"
+                        filled
+                        label="Payment Amount *"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        :max="saleData.due_amount"
+                        prefix="₹"
+                        :rules="[
+                          val => !!val || 'Amount is required',
+                          val => val > 0 || 'Amount must be greater than 0',
+                          val => val <= saleData.due_amount || `Amount cannot exceed due amount of ₹${formatCurrency(saleData.due_amount)}`
+                        ]"
+                        lazy-rules
+                      >
+                        <template v-slot:append>
+                          <q-btn 
+                            flat 
+                            dense 
+                            color="primary" 
+                            label="Full" 
+                            @click="setMaxAmount"
+                            size="sm"
+                          ></q-btn>
+                        </template>
+                        <template v-slot:hint>
+                          Maximum: ₹{{ formatCurrency(saleData.due_amount) }}
+                        </template>
+                      </q-input>
+                    </div>
+                    
+                    <!-- Payment Date -->
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model="paymentForm.payment_date"
+                        filled
+                        label="Payment Date *"
+                        type="date"
+                        :max="todaysDate"
+                        :rules="[val => !!val || 'Payment date is required']"
+                        lazy-rules
+                      ></q-input>
+                    </div>
+                    
+                    <!-- Payment Mode -->
+                    <div class="col-12">
+                      <div class="text-subtitle2 q-mb-sm">Payment Mode *</div>
+                      <div class="payment-mode-grid">
+                        <q-btn-toggle
+                          v-model="paymentForm.payment_mode"
+                          toggle-color="primary"
+                          :options="paymentModeOptions"
+                          class="full-width"
+                          no-caps
+                          unelevated
+                          spread
+                        />
+                      </div>
+                    </div>
+                    
+                    <!-- Reference Number -->
+                    <div class="col-12 col-md-6">
+                      <q-input
+                        v-model="paymentForm.reference_number"
+                        filled
+                        label="Reference Number"
+                        :placeholder="getReferencePlaceholder(paymentForm.payment_mode)"
+                        :hint="getReferenceHint(paymentForm.payment_mode)"
+                      ></q-input>
+                    </div>
+                    
+                    <!-- Notes -->
+                    <div class="col-12">
+                      <q-input
+                        v-model="paymentForm.notes"
+                        filled
+                        type="textarea"
+                        label="Payment Notes"
+                        rows="3"
+                        placeholder="Additional notes about this payment..."
+                      ></q-input>
+                    </div>
+                  </div>
+
+                  <!-- Payment Preview -->
+                  <q-card v-if="paymentForm.amount > 0" class="bg-grey-1 q-mt-md">
+                    <q-card-section>
+                      <div class="text-subtitle2 text-primary q-mb-sm">Payment Preview</div>
+                      <div class="row justify-between q-mb-xs">
+                        <span>Payment Amount:</span>
+                        <span class="text-weight-bold">₹{{ formatCurrency(paymentForm.amount) }}</span>
+                      </div>
+                      <div class="row justify-between q-mb-xs">
+                        <span>Remaining Due:</span>
+                        <span class="text-weight-bold" :class="remainingDue > 0 ? 'text-orange' : 'text-green'">
+                          ₹{{ formatCurrency(remainingDue) }}
+                        </span>
+                      </div>
+                      <div class="row justify-between">
+                        <span>Status After Payment:</span>
+                        <q-badge :color="remainingDue > 0 ? 'orange' : 'green'">
+                          {{ remainingDue > 0 ? 'PARTIAL' : 'COMPLETED' }}
+                        </q-badge>
+                      </div>
+                    </q-card-section>
+                  </q-card>
+
+                  <!-- Form Actions -->
+                  <div class="row justify-end q-gutter-md q-mt-lg">
+                    <q-btn
+                      color="grey"
+                      label="Cancel"
+                      @click="goBack"
+                      class="q-px-xl"
+                      outline
+                    ></q-btn>
+                    <q-btn
+                      color="primary"
+                      label="Record Payment"
+                      type="submit"
+                      :loading="submitting"
+                      class="q-px-xl"
+                      :disable="!isFormValid"
+                    >
+                      <template v-slot:loading>
+                        <q-spinner-dots />
+                        Recording...
+                      </template>
+                    </q-btn>
+                  </div>
+                </q-form>
+              </q-card-section>
+            </q-card>
+
+            <!-- Payment History -->
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="history" class="q-mr-sm text-primary"></q-icon>
+                  Payment History
+                </div>
+                
+                <q-table
+                  :rows="saleData.payments"
+                  :columns="paymentColumns"
+                  row-key="id"
+                  flat
+                  bordered
+                  :pagination="{ rowsPerPage: 0 }"
+                  hide-pagination
+                >
+                  <template v-slot:body-cell-payment_date="props">
+                    <q-td :props="props">
+                      <q-icon name="calendar_today" class="q-mr-xs text-grey-6"></q-icon>
+                      {{ props.row.formatted_payment_date }}
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-amount="props">
+                    <q-td :props="props" class="text-right">
+                      <div class="text-h6 text-weight-bold text-positive">
+                        ₹{{ formatCurrency(props.value) }}
+                      </div>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-payment_mode="props">
+                    <q-td :props="props" class="text-center">
+                      <q-badge color="blue" outline>
+                        {{ props.value.toUpperCase() }}
+                      </q-badge>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-reference_number="props">
+                    <q-td :props="props">
+                      <span v-if="props.value" class="text-mono">{{ props.value }}</span>
+                      <span v-else class="text-grey-6">-</span>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-notes="props">
+                    <q-td :props="props">
+                      <span v-if="props.value">{{ props.value }}</span>
+                      <span v-else class="text-grey-6">-</span>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:body-cell-actions="props">
+                    <q-td :props="props" class="text-center">
+                      <q-btn
+                        flat
+                        dense
+                        color="red"
+                        icon="delete"
+                        @click="removePayment(props.row)"
+                      >
+                        <q-tooltip>Remove Payment</q-tooltip>
+                      </q-btn>
+                    </q-td>
+                  </template>
+
+                  <template v-slot:no-data>
+                    <div class="full-width row flex-center text-grey-6 q-gutter-sm q-pa-lg">
+                      <q-icon size="2em" name="payment"></q-icon>
+                      <span>No payments recorded yet</span>
+                    </div>
+                  </template>
+                </q-table>
+              </q-card-section>
+            </q-card>
+
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const saleId = '<%= params[:id] %>';
+  
+  const app = Vue.createApp({
+    data() {
+      return {
+        loading: true,
+        submitting: false,
+        todaysDate: '',
+        saleData: {
+          invoice_number: '',
+          customer_name: '',
+          final_amount: 0,
+          paid_amount: 0,
+          due_amount: 0,
+          payment_status: 'pending',
+          payments: []
+        },
+        paymentForm: {
+          amount: '',
+          payment_date: '',
+          payment_mode: 'cash',
+          reference_number: '',
+          notes: ''
+        },
+        paymentModeOptions: [
+          { label: 'Cash', value: 'cash' },
+          { label: 'Card', value: 'card' },
+          { label: 'UPI', value: 'upi' },
+          { label: 'Bank Transfer', value: 'bank_transfer' },
+          { label: 'Cheque', value: 'cheque' }
+        ],
+        paymentColumns: [
+          { name: 'payment_date', label: 'Date', align: 'left', field: 'formatted_payment_date' },
+          { name: 'amount', label: 'Amount', align: 'right', field: 'amount' },
+          { name: 'payment_mode', label: 'Mode', align: 'center', field: 'payment_mode' },
+          { name: 'reference_number', label: 'Reference', align: 'left', field: 'reference_number' },
+          { name: 'notes', label: 'Notes', align: 'left', field: 'notes' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    computed: {
+      remainingDue() {
+        return Math.max(0, this.saleData.due_amount - (parseFloat(this.paymentForm.amount) || 0));
+      },
+      isFormValid() {
+        return this.paymentForm.amount > 0 &&
+               this.paymentForm.amount <= this.saleData.due_amount &&
+               this.paymentForm.payment_date &&
+               this.paymentForm.payment_mode;
+      }
+    },
+    mounted() {
+      this.setTodaysDate();
+      this.loadSaleData();
+    },
+    methods: {
+      setTodaysDate() {
+        const today = new Date().toISOString().split('T')[0];
+        this.todaysDate = today;
+        this.paymentForm.payment_date = today;
+      },
+
+      async loadSaleData() {
+        try {
+          const response = await fetch(`/sales/${saleId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          if (response.ok) {
+            this.saleData = await response.json();
+            
+            // If sale is already fully paid, redirect back
+            if (this.saleData.due_amount <= 0) {
+              this.$q.notify({
+                type: 'info',
+                message: 'This sale is already fully paid!'
+              });
+              setTimeout(() => {
+                this.goBack();
+              }, 2000);
+            }
+          } else {
+            throw new Error('Failed to load sale data');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+          this.goBack();
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      setMaxAmount() {
+        this.paymentForm.amount = this.saleData.due_amount;
+      },
+
+      getReferencePlaceholder(mode) {
+        switch (mode) {
+          case 'card': return 'Transaction ID';
+          case 'upi': return 'UPI Transaction ID';
+          case 'bank_transfer': return 'Transfer Reference';
+          case 'cheque': return 'Cheque Number';
+          default: return 'Reference Number';
+        }
+      },
+
+      getReferenceHint(mode) {
+        switch (mode) {
+          case 'card': return 'Card transaction reference number';
+          case 'upi': return 'UPI payment reference ID';
+          case 'bank_transfer': return 'Bank transfer reference number';
+          case 'cheque': return 'Cheque number and bank details';
+          default: return 'Optional reference for this payment';
+        }
+      },
+
+      async onSubmit() {
+        if (!this.isFormValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields correctly'
+          });
+          return;
+        }
+
+        this.submitting = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/payments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(this.paymentForm)
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message,
+              timeout: 3000
+            });
+            
+            // Reset form
+            this.paymentForm = {
+              amount: '',
+              payment_date: this.paymentForm.payment_date,
+              payment_mode: 'cash',
+              reference_number: '',
+              notes: ''
+            };
+            
+            // Reload sale data to update amounts and payment history
+            await this.loadSaleData();
+            
+            // If sale is fully paid, redirect to sale details after a moment
+            if (this.saleData.due_amount <= 0) {
+              this.$q.notify({
+                type: 'positive',
+                message: 'Sale is now fully paid! Redirecting to sale details...',
+                timeout: 2000
+              });
+              setTimeout(() => {
+                window.location.href = `/sales/${saleId}`;
+              }, 2000);
+            }
+          } else {
+            throw new Error(data.errors?.join(', ') || data.message || 'Failed to add payment');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      async removePayment(payment) {
+        this.$q.dialog({
+          title: 'Confirm Delete',
+          message: `Are you sure you want to remove payment of ₹${this.formatCurrency(payment.amount)}?`,
+          cancel: true,
+          persistent: true,
+          ok: {
+            label: 'Delete',
+            color: 'red'
+          }
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/sales/${saleId}/payments/${payment.id}`, {
+              method: 'DELETE',
+              headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message
+              });
+              await this.loadSaleData();
+            } else {
+              throw new Error(data.errors?.join(', ') || data.message || 'Failed to remove payment');
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      getStatusColor(status, isOverdue) {
+        if (isOverdue) return 'red';
+        
+        switch (status) {
+          case 'completed': return 'green';
+          case 'partial': return 'orange';
+          case 'pending': return 'blue';
+          default: return 'grey';
+        }
+      },
+
+      goBack() {
+        window.location.href = `/sales/${saleId}`;
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

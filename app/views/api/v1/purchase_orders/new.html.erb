@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create Purchase Order - Aruna Solar</title>
+  
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Orders"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="add_shopping_cart" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Create New Purchase Order</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center q-mb-lg">
+          <q-icon name="add_shopping_cart" size="xl" color="primary" class="q-mr-md"></q-icon>
+          <div>
+            <div class="text-h4 q-mb-xs">Create Purchase Order</div>
+            <div class="text-subtitle1 text-grey-7">
+              Add vendor details and select products to create a new purchase order
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Card -->
+        <q-card>
+          <q-card-section>
+            <q-stepper
+              v-model="step"
+              vertical
+              color="primary"
+              animated
+            >
+              <!-- Step 1: Basic Information -->
+              <q-step
+                :name="1"
+                title="Basic Information"
+                icon="info"
+                :done="step > 1"
+              >
+                <div class="q-gutter-md q-mt-md">
+                  <div class="row q-gutter-md">
+                    <div class="col-12 col-md-5">
+                      <q-select
+                        v-model="orderForm.branch_id"
+                        filled
+                        label="Branch *"
+                        :options="branchOptions"
+                        option-value="value"
+                        option-label="label"
+                        emit-value
+                        map-options
+                        :rules="[val => !!val || 'Branch is required']"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="store"></q-icon>
+                        </template>
+                      </q-select>
+                    </div>
+                    <div class="col-12 col-md-5">
+                      <q-input
+                        v-model="orderForm.purchase_date"
+                        filled
+                        label="Purchase Date *"
+                        type="date"
+                        :rules="[val => !!val || 'Purchase date is required']"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="event"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+                </div>
+
+                <q-stepper-navigation>
+                  <q-btn @click="step = 2" color="primary" label="Continue" :disable="!orderForm.branch_id || !orderForm.purchase_date"></q-btn>
+                </q-stepper-navigation>
+              </q-step>
+
+              <!-- Step 2: Vendor Information -->
+              <q-step
+                :name="2"
+                title="Vendor Information"
+                icon="business"
+                :done="step > 2"
+              >
+                <div class="q-gutter-md q-mt-md">
+                  <q-input
+                    v-model="orderForm.vendor_name"
+                    filled
+                    label="Vendor Name *"
+                    :rules="[val => !!val || 'Vendor name is required']"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="business"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <q-input
+                    v-model="orderForm.vendor_address"
+                    filled
+                    label="Vendor Address"
+                    type="textarea"
+                    rows="2"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="location_on"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <div class="row q-gutter-md">
+                    <div class="col-12 col-md-5">
+                      <q-input
+                        v-model="orderForm.vendor_mobile_number"
+                        filled
+                        label="Mobile Number"
+                        mask="##########"
+                        :rules="[
+                          val => !val || val.length === 10 || 'Must be 10 digits',
+                          val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                        ]"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="phone"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col-12 col-md-5">
+                      <q-input
+                        v-model="orderForm.vendor_gst_number"
+                        filled
+                        label="GST Number"
+                        mask="##AAAAA####A#A#"
+                        hint="Format: 15 characters"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="receipt_long"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+                </div>
+
+                <q-stepper-navigation>
+                  <q-btn flat @click="step = 1" label="Back"></q-btn>
+                  <q-btn @click="step = 3" color="primary" label="Continue" :disable="!orderForm.vendor_name" class="q-ml-sm"></q-btn>
+                </q-stepper-navigation>
+              </q-step>
+
+              <!-- Step 3: Add Products -->
+              <q-step
+                :name="3"
+                title="Add Products"
+                icon="inventory"
+              >
+                <div class="q-mt-md">
+                  <!-- Add Product Row -->
+                  <q-card class="q-mb-md bg-grey-1">
+                    <q-card-section>
+                      <div class="text-subtitle1 q-mb-md">Add Product to Order</div>
+                      <div class="row q-gutter-md">
+                        <div class="col-12 col-md-4">
+                          <q-select
+                            v-model="newItem.product_sku_id"
+                            filled
+                            label="Select Product"
+                            :options="productOptions"
+                            option-value="id"
+                            option-label="label"
+                            emit-value
+                            map-options
+                            use-input
+                            input-debounce="300"
+                            @filter="filterProducts"
+                            :loading="searchingProducts"
+                          >
+                            <template v-slot:prepend>
+                              <q-icon name="search"></q-icon>
+                            </template>
+                            <template v-slot:no-option>
+                              <q-item>
+                                <q-item-section class="text-grey">
+                                  Start typing to search products...
+                                </q-item-section>
+                              </q-item>
+                            </template>
+                          </q-select>
+                        </div>
+                        <div class="col-12 col-md-2">
+                          <q-input
+                            v-model.number="newItem.quantity"
+                            filled
+                            label="Quantity"
+                            type="number"
+                            min="1"
+                          >
+                            <template v-slot:prepend>
+                              <q-icon name="numbers"></q-icon>
+                            </template>
+                          </q-input>
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <q-input
+                            v-model.number="newItem.unit_cost_price"
+                            filled
+                            label="Unit Price (₹)"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                          >
+                            <template v-slot:prepend>
+                              <q-icon name="currency_rupee"></q-icon>
+                            </template>
+                          </q-input>
+                        </div>
+                        <div class="col-12 col-md-2">
+                          <q-btn
+                            color="primary"
+                            icon="add"
+                            label="Add"
+                            @click="addItem"
+                            :disable="!canAddItem"
+                            class="full-width"
+                          ></q-btn>
+                        </div>
+                      </div>
+                    </q-card-section>
+                  </q-card>
+
+                  <!-- Items Table -->
+                  <q-table
+                    :rows="orderItems"
+                    :columns="itemColumns"
+                    row-key="temp_id"
+                    flat
+                    bordered
+                    :pagination="{ rowsPerPage: 0 }"
+                  >
+                    <template v-slot:body-cell-product="props">
+                      <q-td :props="props">
+                        <div class="text-weight-medium">{{ props.row.product_name }}</div>
+                        <div class="text-caption text-grey-7">{{ props.row.product_code }}</div>
+                      </q-td>
+                    </template>
+
+                    <template v-slot:body-cell-quantity="props">
+                      <q-td :props="props">
+                        <q-chip color="primary" text-color="white" dense>
+                          {{ props.value }} units
+                        </q-chip>
+                      </q-td>
+                    </template>
+
+                    <template v-slot:body-cell-unit_cost_price="props">
+                      <q-td :props="props">
+                        ₹{{ formatCurrency(props.value) }}
+                      </q-td>
+                    </template>
+
+                    <template v-slot:body-cell-total_price="props">
+                      <q-td :props="props">
+                        <div class="text-weight-bold">
+                          ₹{{ formatCurrency(props.value) }}
+                        </div>
+                      </q-td>
+                    </template>
+
+                    <template v-slot:body-cell-actions="props">
+                      <q-td :props="props">
+                        <q-btn
+                          flat
+                          dense
+                          color="red"
+                          icon="delete"
+                          @click="removeItem(props.row.temp_id)"
+                        ></q-btn>
+                      </q-td>
+                    </template>
+
+                    <template v-slot:bottom-row>
+                      <q-tr>
+                        <q-td colspan="3" class="text-right text-weight-bold">
+                          Total:
+                        </q-td>
+                        <q-td class="text-weight-bold text-h6 text-positive">
+                          ₹{{ formatCurrency(totalAmount) }}
+                        </q-td>
+                        <q-td></q-td>
+                      </q-tr>
+                    </template>
+                  </q-table>
+
+                  <!-- Notes Section -->
+                  <q-input
+                    v-model="orderForm.notes"
+                    filled
+                    label="Notes (Optional)"
+                    type="textarea"
+                    rows="3"
+                    class="q-mt-md"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="notes"></q-icon>
+                    </template>
+                  </q-input>
+                </div>
+
+                <q-stepper-navigation>
+                  <q-btn flat @click="step = 2" label="Back"></q-btn>
+                  <q-btn 
+                    @click="createOrder" 
+                    color="primary" 
+                    label="Create Purchase Order" 
+                    :loading="saving"
+                    :disable="orderItems.length === 0"
+                    class="q-ml-sm"
+                  ></q-btn>
+                </q-stepper-navigation>
+              </q-step>
+            </q-stepper>
+          </q-card-section>
+        </q-card>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        step: 1,
+        saving: false,
+        searchingProducts: false,
+        branchOptions: [],
+        productOptions: [], // Start empty - only load when searching
+        allProducts: [], // Keep full list for reference
+        orderForm: {
+          branch_id: null,
+          purchase_date: new Date().toISOString().split('T')[0], // Today's date
+          vendor_name: '',
+          vendor_address: '',
+          vendor_mobile_number: '',
+          vendor_gst_number: '',
+          notes: ''
+        },
+        newItem: {
+          product_sku_id: null,
+          quantity: 1,
+          unit_cost_price: 0.01
+        },
+        orderItems: [],
+        itemIdCounter: 1,
+        itemColumns: [
+          { name: 'product', label: 'Product', align: 'left', field: 'product_name' },
+          { name: 'quantity', label: 'Quantity', align: 'center', field: 'quantity' },
+          { name: 'unit_cost_price', label: 'Unit Price', align: 'right', field: 'unit_cost_price' },
+          { name: 'total_price', label: 'Total', align: 'right', field: 'total_price' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    computed: {
+      canAddItem() {
+        return this.newItem.product_sku_id && 
+               this.newItem.quantity > 0 && 
+               this.newItem.unit_cost_price > 0;
+      },
+      totalAmount() {
+        return this.orderItems.reduce((sum, item) => sum + item.total_price, 0);
+      }
+    },
+    mounted() {
+      this.loadOptions();
+    },
+    methods: {
+      async loadOptions() {
+        try {
+          const response = await fetch('/aruna_solar/api/v1/purchase_orders/options', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branchOptions = data.branches.map(([name, id]) => ({
+              label: name,
+              value: id
+            }));
+            
+            // Store all products but don't load them in dropdown initially
+            this.allProducts = data.product_skus;
+            // Start with empty options - user must search
+            this.productOptions = [];
+          }
+        } catch (error) {
+          console.error('Error loading options:', error);
+        }
+      },
+
+      filterProducts(val, update) {
+        this.searchingProducts = true;
+        
+        update(() => {
+          if (val === '' || val.length < 2) {
+            // Show first 5 products when no search or less than 2 characters
+            this.productOptions = this.allProducts.slice(0, 5);
+          } else {
+            // Filter and limit to 5 results
+            const needle = val.toLowerCase();
+            this.productOptions = this.allProducts
+              .filter(v => v.label.toLowerCase().indexOf(needle) > -1)
+              .slice(0, 5);
+          }
+          this.searchingProducts = false;
+        });
+      },
+
+      addItem() {
+        if (!this.canAddItem) {
+          this.$q.notify({
+            type: 'warning',
+            message: 'Please select a product and enter valid quantity and price'
+          });
+          return;
+        }
+
+        const product = this.allProducts.find(p => p.id === this.newItem.product_sku_id);
+        if (!product) {
+          this.$q.notify({
+            type: 'warning',
+            message: 'Product not found. Please select a valid product.'
+          });
+          return;
+        }
+
+        // Check if product already exists
+        const existingItem = this.orderItems.find(item => item.product_sku_id === this.newItem.product_sku_id);
+        if (existingItem) {
+          this.$q.notify({
+            type: 'warning',
+            message: 'Product already added. Please remove it first to add with different quantity/price.'
+          });
+          return;
+        }
+
+        this.orderItems.push({
+          temp_id: this.itemIdCounter++,
+          product_sku_id: this.newItem.product_sku_id,
+          product_name: product.name, // Use correct property from API
+          product_code: product.code, // Use correct property from API
+          quantity: this.newItem.quantity,
+          unit_cost_price: this.newItem.unit_cost_price,
+          total_price: this.newItem.quantity * this.newItem.unit_cost_price
+        });
+
+        // Reset form
+        this.newItem = {
+          product_sku_id: null,
+          quantity: 1,
+          unit_cost_price: 0.01
+        };
+
+        this.$q.notify({
+          type: 'positive',
+          message: 'Product added successfully'
+        });
+      },
+
+      removeItem(tempId) {
+        const index = this.orderItems.findIndex(item => item.temp_id === tempId);
+        if (index > -1) {
+          this.orderItems.splice(index, 1);
+          this.$q.notify({
+            type: 'positive',
+            message: 'Product removed'
+          });
+        }
+      },
+
+      async createOrder() {
+        // Validation
+        if (!this.orderForm.branch_id || !this.orderForm.vendor_name || 
+            !this.orderForm.purchase_date || this.orderItems.length === 0) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please complete all required fields and add at least one product'
+          });
+          return;
+        }
+
+        this.saving = true;
+        try {
+          const orderData = {
+            purchase_order: {
+              ...this.orderForm,
+              items: this.orderItems.map(item => ({
+                product_sku_id: item.product_sku_id,
+                quantity: item.quantity,
+                unit_cost_price: item.unit_cost_price
+              }))
+            }
+          };
+
+          const response = await fetch('/aruna_solar/api/v1/purchase_orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(orderData)
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            
+            // Redirect to the created order
+            setTimeout(() => {
+              window.location.href = `/purchase_orders/${data.data.purchase_order.id}`;
+            }, 1000);
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      goBack() {
+        window.location.href = '/purchase_orders';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

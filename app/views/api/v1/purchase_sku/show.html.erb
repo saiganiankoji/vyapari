@@ -1,0 +1,365 @@
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Purchases"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="receipt" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Purchase Order Details</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Purchase Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div class="row items-center">
+            <q-icon name="receipt" size="xl" color="orange" class="q-mr-md"></q-icon>
+            <div>
+              <div class="text-h4 q-mb-xs">
+                Purchase Order #<%= @purchase_sku.id %>
+                <q-badge 
+                  color="positive"
+                  label="Completed"
+                  class="q-ml-sm"
+                ></q-badge>
+              </div>
+              <div class="text-subtitle1 text-grey-7">
+                Created: <%= @purchase_sku.created_at.strftime("%B %d, %Y at %I:%M %p") %>
+              </div>
+            </div>
+          </div>
+          <q-btn 
+            color="orange" 
+            icon="edit" 
+            label="Edit Purchase"
+            @click="editPurchase"
+            size="lg"
+          ></q-btn>
+        </div>
+
+        <div class="row q-gutter-lg">
+          <!-- Purchase Details -->
+          <div class="col-12 col-lg-8">
+            <q-card class="q-mb-lg">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="info" class="q-mr-sm"></q-icon>
+                  Purchase Information
+                </div>
+                
+                <div class="row q-gutter-lg">
+                  <div class="col-12 col-md-6">
+                    <q-list separator>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="store" color="blue"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Branch</q-item-label>
+                          <q-item-label caption class="text-h6 text-primary">
+                            <%= @purchase_sku.branch_name %>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="inventory" color="purple"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Product</q-item-label>
+                          <q-item-label caption class="text-body1">
+                            <%= @purchase_sku.product_name %>
+                          </q-item-label>
+                          <q-item-label caption class="text-grey-6">
+                            SKU: <%= @purchase_sku.product_code %>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="event" color="green"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Purchase Date</q-item-label>
+                          <q-item-label caption class="text-body1">
+                            <%= @purchase_sku.formatted_purchase_date %>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </div>
+
+                  <div class="col-12 col-md-6">
+                    <q-list separator>
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="confirmation_number" color="orange"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Quantity</q-item-label>
+                          <q-item-label caption>
+                            <q-chip color="primary" text-color="white" size="md">
+                              <%= @purchase_sku.quantity %> units
+                            </q-chip>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="currency_rupee" color="teal"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Unit Cost Price</q-item-label>
+                          <q-item-label caption class="text-h6">
+                            ₹<%= number_with_delimiter(@purchase_sku.unit_cost_price) %>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+
+                      <q-item>
+                        <q-item-section avatar>
+                          <q-icon name="calculate" color="red"></q-icon>
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label>Total Cost Price</q-item-label>
+                          <q-item-label caption class="text-h5 text-positive text-weight-bold">
+                            ₹<%= number_with_delimiter(@purchase_sku.total_cost_price) %>
+                          </q-item-label>
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Vendor Information -->
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="business" class="q-mr-sm"></q-icon>
+                  Vendor Information
+                </div>
+                
+                <q-list separator>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="business_center" color="blue"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Vendor Name</q-item-label>
+                      <q-item-label caption class="text-h6"><%= @purchase_sku.vendor_name %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+
+                  <% if @purchase_sku.vendor_address.present? %>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="location_on" color="red"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Address</q-item-label>
+                      <q-item-label caption><%= @purchase_sku.vendor_address %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+                  <% end %>
+
+                  <% if @purchase_sku.vendor_mobile_number.present? %>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="phone" color="green"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Mobile Number</q-item-label>
+                      <q-item-label caption>
+                        <a href="tel:<%= @purchase_sku.vendor_mobile_number %>" class="text-primary">
+                          <%= format_mobile_number(@purchase_sku.vendor_mobile_number) %>
+                        </a>
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+                  <% end %>
+                </q-list>
+              </q-card-section>
+            </q-card>
+          </div>
+
+          <!-- Actions & Summary -->
+          <div class="col-12 col-lg-4">
+            <!-- Quick Actions -->
+            <q-card class="q-mb-lg">
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="settings" class="q-mr-sm"></q-icon>
+                  Quick Actions
+                </div>
+                
+                <div class="q-gutter-sm">
+                  <q-btn 
+                    color="orange" 
+                    icon="edit" 
+                    label="Edit Purchase"
+                    @click="editPurchase"
+                    class="full-width"
+                  ></q-btn>
+
+                  <q-btn 
+                    color="blue" 
+                    icon="content_copy" 
+                    label="Duplicate Purchase"
+                    @click="duplicatePurchase"
+                    class="full-width"
+                    outline
+                  ></q-btn>
+
+                  <q-separator class="q-my-md"></q-separator>
+
+                  <q-btn 
+                    color="red" 
+                    icon="delete" 
+                    label="Delete Purchase"
+                    @click="deletePurchase"
+                    outline
+                    class="full-width"
+                  ></q-btn>
+                </div>
+              </q-card-section>
+            </q-card>
+
+            <!-- Cost Breakdown -->
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="analytics" class="q-mr-sm"></q-icon>
+                  Cost Analysis
+                </div>
+                
+                <div class="q-gutter-sm">
+                  <div class="row items-center justify-between">
+                    <div class="text-body1">Unit Cost:</div>
+                    <div class="text-weight-bold">₹<%= number_with_delimiter(@purchase_sku.unit_cost_price) %></div>
+                  </div>
+                  <div class="row items-center justify-between">
+                    <div class="text-body1">Quantity:</div>
+                    <div class="text-weight-bold"><%= @purchase_sku.quantity %> units</div>
+                  </div>
+                  <q-separator></q-separator>
+                  <div class="row items-center justify-between">
+                    <div class="text-h6 text-positive">Total Cost:</div>
+                    <div class="text-h6 text-positive text-weight-bold">₹<%= number_with_delimiter(@purchase_sku.total_cost_price) %></div>
+                  </div>
+                  
+                  <q-separator class="q-my-md"></q-separator>
+                  
+                  <div class="text-caption text-grey-7">
+                    <div>Per unit breakdown:</div>
+                    <div>Cost per unit: ₹<%= number_with_delimiter(@purchase_sku.unit_cost_price) %></div>
+                  </div>
+                </div>
+              </q-card-section>
+            </q-card>
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        purchaseId: <%= @purchase_sku.id %>
+      }
+    },
+    methods: {
+      editPurchase() {
+        window.location.href = `/purchase_skus/${this.purchaseId}/edit`;
+      },
+
+      duplicatePurchase() {
+        this.$q.dialog({
+          title: 'Duplicate Purchase Order',
+          message: 'This will create a new purchase order with the same details. Continue?',
+          cancel: true,
+          persistent: true
+        }).onOk(() => {
+          // Navigate to new purchase with pre-filled data
+          const params = new URLSearchParams({
+            duplicate_from: this.purchaseId
+          });
+          window.location.href = `/purchase_skus/new?${params}`;
+        });
+      },
+
+      deletePurchase() {
+        this.$q.dialog({
+          title: 'Confirm Delete',
+          message: 'Are you sure you want to delete this purchase order? This action cannot be undone.',
+          cancel: true,
+          persistent: true,
+          color: 'negative'
+        }).onOk(async () => {
+          try {
+            const response = await fetch(`/aruna_solar/api/v1/purchase_skus/${this.purchaseId}`, {
+              method: 'DELETE',
+              headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              this.$q.notify({
+                type: 'positive',
+                message: data.message
+              });
+              setTimeout(() => {
+                window.location.href = '/purchase_skus';
+              }, 1000);
+            } else {
+              throw new Error(data.message);
+            }
+          } catch (error) {
+            this.$q.notify({
+              type: 'negative',
+              message: error.message
+            });
+          }
+        });
+      },
+
+      goBack() {
+        window.location.href = '/purchase_skus';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
