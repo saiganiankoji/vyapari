@@ -73,3 +73,4 @@ gem 'kaminari' # For pagination (if needed)
 gem 'annotate' # For schema annotations
 gem 'rubocop-rails' # For code style
 gem 'httparty'
+gem 'cgi', '0.5.0'  # Lock to the version that works
