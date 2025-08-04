@@ -47,7 +47,7 @@ class Api::V1::UserController < ApplicationController
       
       # Here you would send SMS with temp_password in real implementation
       # For now, we'll just return it in response (remove this in production)
-      
+      Rails.logger.info "STAGING: Temp password for #{params[:mobile_number]} is: #{temp_password}"
       render json: { 
         message: "User created with temporary password", 
         data: { is_user_verified: false }, 
