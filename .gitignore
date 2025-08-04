@@ -67,8 +67,8 @@ dev-docker-entrypoint.sh
 .rubocop.yml
 .rubocop_todo.yml
 
-# ====== Gemfile Lock (optional) ======
-/Gemfile.lock
+# # ====== Gemfile Lock (optional) ======
+# /Gemfile.lock
 
 # ====== Custom Keys and Certs ======
 privatekey.pem
