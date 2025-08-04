@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Branch Management - Aruna Solar</title>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" as="style">
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" as="style">
+  
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons" rel="stylesheet" type="text/css">
+  <link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+  
+  <!-- Smart loading styles -->
+  <style>
+    /* Hide app until frameworks load to prevent FOUC */
+    [v-cloak] {
+      display: none !important;
+    }
+    
+    /* Minimal loading screen - only shown if loading takes too long */
+    .smart-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #fafafa;
+      display: none; /* Hidden by default */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .smart-loader.show {
+      display: flex;
+    }
+    
+    .loader-content {
+      text-align: center;
+      animation: fadeInUp 0.3s ease-out;
+    }
+    
+    .loader-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 16px;
+      border: 3px solid #e3f2fd;
+      border-top: 3px solid #1976d2;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    .loader-title {
+      font-size: 18px;
+      font-weight: 500;
+      color: #1976d2;
+      margin-bottom: 8px;
+    }
+    
+    .loader-message {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* Smooth fade in for the main app */
+    .app-container {
+      opacity: 0;
+      transition: opacity 0.3s ease-in;
+    }
+    
+    .app-container.loaded {
+      opacity: 1;
+    }
+    
+    /* Optional: Skeleton for very slow connections - only shown after 2 seconds */
+    .skeleton-fallback {
+      display: none;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 20px;
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .skeleton-fallback.show {
+      display: block;
+    }
+    
+    .skeleton-header {
+      background: #1976d2;
+      color: white;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      margin: -20px -20px 20px -20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-card {
+      background: white;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .skeleton-line {
+      height: 16px;
+      background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    
+    .skeleton-line.title {
+      height: 24px;
+      width: 60%;
+    }
+    
+    .skeleton-line.subtitle {
+      width: 40%;
+    }
+    
+    .skeleton-line.full {
+      width: 100%;
+    }
+    
+    .skeleton-line.half {
+      width: 50%;
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Smart loader - only shows if loading takes more than 800ms -->
+<div id="smart-loader" class="smart-loader">
+  <div class="loader-content">
+    <div class="loader-icon"></div>
+    <div class="loader-title">Loading...</div>
+    <div class="loader-message">Please wait while we prepare your data</div>
+  </div>
+</div>
+
+<!-- Skeleton fallback - only shows if loading takes more than 2 seconds -->
+<div id="skeleton-fallback" class="skeleton-fallback">
+  <div class="skeleton-header">
+    <span style="font-size: 20px; font-weight: 500;">← | 🏢 Branch Management</span>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line title"></div>
+    <div class="skeleton-line subtitle"></div>
+  </div>
+  <div class="skeleton-card">
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+    <div class="skeleton-line full"></div>
+    <div class="skeleton-line half"></div>
+  </div>
+</div>
+
+<!-- Main app -->
+<div id="app" v-cloak class="app-container">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goToDashboard" icon="arrow_back" label="Dashboard"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="store" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Branch Management</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div>
+            <div class="text-h4 q-mb-sm">
+              <q-icon name="store" class="q-mr-sm"></q-icon>
+              Branches
+            </div>
+            <div class="text-subtitle1 text-grey-7">
+              Manage your branch locations and details
+            </div>
+          </div>
+          <q-btn 
+            color="primary" 
+            icon="add" 
+            label="Add Branch" 
+            size="lg"
+            @click="showCreateDialog = true"
+            class="q-px-lg"
+          ></q-btn>
+        </div>
+
+        <!-- Filters Card -->
+        <q-card class="q-mb-lg">
+          <q-card-section>
+            <div class="text-h6 q-mb-md">
+              <q-icon name="filter_list" class="q-mr-sm"></q-icon>
+              Filters
+            </div>
+            <div class="row q-gutter-md">
+              <div class="col-12 col-md-3">
+                <q-input
+                  v-model="filters.by_name"
+                  filled
+                  label="Search by name"
+                  placeholder="Enter branch name"
+                  @keyup.enter="applyFilters"
+                  @clear="onInputClear"
+                  @input="onFilterInput"
+                  clearable
+                  debounce="300"
+                >
+                  <template v-slot:prepend>
+                    <q-icon name="search"></q-icon>
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12 col-md-2">
+                <q-input
+                  v-model="filters.by_city"
+                  filled
+                  label="City"
+                  placeholder="Enter city"
+                  @keyup.enter="applyFilters"
+                  @clear="onInputClear"
+                  @input="onFilterInput"
+                  clearable
+                  debounce="300"
+                ></q-input>
+              </div>
+              <div class="col-12 col-md-2">
+                <q-input
+                  v-model="filters.by_state"
+                  filled
+                  label="State"
+                  placeholder="Enter state"
+                  @keyup.enter="applyFilters"
+                  @clear="onInputClear"
+                  @input="onFilterInput"
+                  clearable
+                  debounce="300"
+                ></q-input>
+              </div>
+              <div class="col-12 col-md-2">
+                <q-select
+                  v-model="filters.active"
+                  filled
+                  label="Status"
+                  :options="statusOptions"
+                  option-value="value"
+                  option-label="label"
+                  emit-value
+                  map-options
+                  @update:model-value="onStatusFilterChange"
+                  @clear="onSelectClear"
+                  clearable
+                ></q-select>
+              </div>
+              <div class="col-12 col-md-1">
+                <q-btn
+                  color="primary"
+                  icon="search"
+                  label="Search"
+                  @click="applyFilters"
+                  class="full-width"
+                  size="md"
+                ></q-btn>
+              </div>
+              <div class="col-12 col-md-1">
+                <q-btn
+                  color="grey-6"
+                  icon="clear"
+                  label="Clear All"
+                  @click="clearAllFilters"
+                  class="full-width"
+                  size="md"
+                  outline
+                ></q-btn>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Branches Table -->
+        <q-card>
+          <q-card-section>
+            <q-table
+              :rows="branches"
+              :columns="columns"
+              :loading="loading"
+              :pagination="pagination"
+              @request="onRequest"
+              row-key="id"
+              flat
+              bordered
+            >
+              <template v-slot:body-cell-is_active="props">
+                <q-td :props="props">
+                  <q-badge 
+                    :color="props.value ? 'positive' : 'negative'"
+                    :label="props.value ? 'Active' : 'Inactive'"
+                  ></q-badge>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-actions="props">
+                <q-td :props="props">
+                  <q-btn-group flat>
+                    <q-btn
+                      flat
+                      dense
+                      color="primary"
+                      icon="visibility"
+                      @click="viewBranch(props.row.id)"
+                    >
+                      <q-tooltip>View Details</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      flat
+                      dense
+                      color="orange"
+                      icon="edit"
+                      @click="editBranch(props.row)"
+                    >
+                      <q-tooltip>Edit</q-tooltip>
+                    </q-btn>
+                    <q-btn
+                      flat
+                      dense
+                      :color="props.row.is_active ? 'negative' : 'positive'"
+                      :icon="props.row.is_active ? 'block' : 'check_circle'"
+                      @click="toggleStatus(props.row)"
+                    >
+                      <q-tooltip>{{ props.row.is_active ? 'Deactivate' : 'Activate' }}</q-tooltip>
+                    </q-btn>
+                  </q-btn-group>
+                </q-td>
+              </template>
+
+              <!-- Custom pagination -->
+              <template v-slot:bottom>
+                <div class="full-width row justify-between items-center">
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">Rows per page:</span>
+                    <q-select
+                      v-model="pagination.rowsPerPage"
+                      :options="rowsPerPageOptions"
+                      dense
+                      outlined
+                      @update:model-value="onRowsPerPageChange"
+                      style="min-width: 80px"
+                    />
+                  </div>
+                  
+                  <div class="row items-center q-gutter-sm">
+                    <span class="text-body2">
+                      {{ getResultsText() }}
+                    </span>
+                  </div>
+
+                  <q-pagination
+                    v-model="pagination.page"
+                    :max="pagination.totalPages"
+                    :max-pages="6"
+                    direction-links
+                    boundary-links
+                    @update:model-value="onPageChange"
+                  />
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
+        <!-- Create/Edit Dialog -->
+        <q-dialog v-model="showCreateDialog" persistent>
+          <q-card style="min-width: 500px;">
+            <q-card-section>
+              <div class="text-h6">{{ editingBranch ? 'Edit Branch' : 'Create New Branch' }}</div>
+            </q-card-section>
+
+            <q-card-section>
+              <q-form @submit="saveBranch" class="q-gutter-md">
+                <q-input
+                  v-model="branchForm.name"
+                  filled
+                  label="Branch Name *"
+                  :rules="[val => !!val || 'Branch name is required']"
+                ></q-input>
+
+                <q-input
+                  v-model="branchForm.address"
+                  filled
+                  label="Address *"
+                  type="textarea"
+                  rows="2"
+                  :rules="[val => !!val || 'Address is required']"
+                ></q-input>
+
+                <div class="row q-gutter-md">
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.city"
+                      filled
+                      label="City"
+                    ></q-input>
+                  </div>
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.state"
+                      filled
+                      label="State"
+                    ></q-input>
+                  </div>
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.pincode"
+                      filled
+                      label="Pincode"
+                      maxlength="6"
+                    ></q-input>
+                  </div>
+                </div>
+
+                <q-input
+                  v-model="branchForm.manager_name"
+                  filled
+                  label="Manager Name"
+                ></q-input>
+
+                <div class="row q-gutter-md">
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.manager_mobile_number"
+                      filled
+                      label="Manager Mobile"
+                      maxlength="10"
+                      :rules="[
+                        val => !val || val.length === 10 || 'Must be 10 digits',
+                        val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                      ]"
+                    ></q-input>
+                  </div>
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.email"
+                      filled
+                      label="Email"
+                      type="email"
+                    ></q-input>
+                  </div>
+                </div>
+
+                <q-toggle
+                  v-model="branchForm.is_active"
+                  label="Active Branch"
+                  color="positive"
+                ></q-toggle>
+              </q-form>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <q-btn flat label="Cancel" @click="closeDialog"></q-btn>
+              <q-btn 
+                color="primary" 
+                label="Save" 
+                @click="saveBranch"
+                :loading="saving"
+              ></q-btn>
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Smart loading logic
+  const smartLoader = document.getElementById('smart-loader');
+  const skeletonFallback = document.getElementById('skeleton-fallback');
+  const appContainer = document.getElementById('app');
+  
+  let loadingTimers = {
+    showLoader: null,
+    showSkeleton: null
+  };
+  
+  // Show simple loader only if loading takes more than 800ms
+  loadingTimers.showLoader = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.add('show');
+    }
+  }, 800);
+  
+  // Show skeleton only if loading takes more than 2 seconds (very slow connection)
+  loadingTimers.showSkeleton = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.add('show');
+    }
+  }, 2000);
+  
+  function hideAllLoaders() {
+    // Clear all timers
+    Object.values(loadingTimers).forEach(timer => {
+      if (timer) clearTimeout(timer);
+    });
+    
+    // Hide all loading screens
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+    if (skeletonFallback) {
+      skeletonFallback.classList.remove('show');
+    }
+    
+    // Show the app with smooth transition
+    if (appContainer) {
+      appContainer.classList.add('loaded');
+    }
+  }
+
+  const app = Vue.createApp({
+    data() {
+      return {
+        branches: [],
+        loading: false,
+        saving: false,
+        showCreateDialog: false,
+        editingBranch: null,
+        filters: {
+          by_name: '',
+          by_city: '',
+          by_state: '',
+          active: ''
+        },
+        branchForm: {
+          name: '',
+          address: '',
+          city: '',
+          state: '',
+          pincode: '',
+          manager_name: '',
+          manager_mobile_number: '',
+          email: '',
+          is_active: true
+        },
+        pagination: {
+          sortBy: 'created_at',
+          descending: true,
+          page: 1,
+          rowsPerPage: 10,
+          rowsNumber: 0,
+          totalPages: 0
+        },
+        statusOptions: [
+          { label: 'All Branches', value: '' },
+          { label: 'Active Only', value: 'active' },
+          { label: 'Inactive Only', value: 'inactive' }
+        ],
+        rowsPerPageOptions: [10, 20, 30, 50],
+        columns: [
+          { name: 'name', required: true, label: 'Branch Name', align: 'left', field: 'name', sortable: true },
+          { name: 'city', label: 'City', align: 'left', field: 'city', sortable: true },
+          { name: 'state', label: 'State', align: 'left', field: 'state', sortable: true },
+          { name: 'manager_name', label: 'Manager', align: 'left', field: 'manager_name' },
+          { name: 'manager_mobile_number', label: 'Mobile', align: 'left', field: 'manager_mobile_number' },
+          { name: 'is_active', label: 'Status', align: 'center', field: 'is_active' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    mounted() {
+      // Hide all loaders and show app
+      hideAllLoaders();
+      this.loadBranches();
+    },
+    methods: {
+      async loadBranches() {
+        this.loading = true;
+        try {
+          const perPage = Math.max(1, this.pagination.rowsPerPage || 10);
+          
+          const params = new URLSearchParams({
+            page: this.pagination.page || 1,
+            per_page: perPage,
+            ...this.getCleanFilters()
+          });
+
+          const response = await fetch(`/aruna_solar/api/v1/branches/list?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branches = data.data.branches;
+            this.pagination.rowsNumber = data.data.pagination.total_count;
+            this.pagination.totalPages = data.data.pagination.total_pages;
+          } else {
+            throw new Error(data.message || 'Failed to load branches');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      getCleanFilters() {
+        const cleanFilters = {};
+        Object.keys(this.filters).forEach(key => {
+          if (this.filters[key] && this.filters[key].toString().trim() !== '') {
+            cleanFilters[key] = this.filters[key];
+          }
+        });
+        return cleanFilters;
+      },
+
+      applyFilters() {
+        this.pagination.page = 1;
+        this.loadBranches();
+      },
+
+      onFilterInput() {
+        this.applyFilters();
+      },
+
+      onInputClear() {
+        this.$nextTick(() => {
+          this.applyFilters();
+        });
+      },
+
+      onSelectClear() {
+        this.$nextTick(() => {
+          this.applyFilters();
+        });
+      },
+
+      onStatusFilterChange(value) {
+        this.applyFilters();
+      },
+
+      clearAllFilters() {
+        this.filters = {
+          by_name: '',
+          by_city: '',
+          by_state: '',
+          active: ''
+        };
+        this.pagination.page = 1;
+        this.loadBranches();
+      },
+
+      onRequest(props) {
+        this.pagination.page = props.pagination.page;
+        this.pagination.rowsPerPage = Math.max(1, props.pagination.rowsPerPage || 10);
+        this.pagination.sortBy = props.pagination.sortBy;
+        this.pagination.descending = props.pagination.descending;
+        this.loadBranches();
+      },
+
+      onPageChange(page) {
+        this.pagination.page = page;
+        this.loadBranches();
+      },
+
+      onRowsPerPageChange(rowsPerPage) {
+        this.pagination.rowsPerPage = Math.max(1, rowsPerPage || 10);
+        this.pagination.page = 1;
+        this.loadBranches();
+      },
+
+      getResultsText() {
+        const start = ((this.pagination.page - 1) * this.pagination.rowsPerPage) + 1;
+        const end = Math.min(this.pagination.page * this.pagination.rowsPerPage, this.pagination.rowsNumber);
+        return `${start}-${end} of ${this.pagination.rowsNumber}`;
+      },
+
+      resetForm() {
+        this.branchForm = {
+          name: '',
+          address: '',
+          city: '',
+          state: '',
+          pincode: '',
+          manager_name: '',
+          manager_mobile_number: '',
+          email: '',
+          is_active: true
+        };
+        this.editingBranch = null;
+      },
+
+      editBranch(branch) {
+        this.editingBranch = branch;
+        this.branchForm = { ...branch };
+        this.showCreateDialog = true;
+      },
+
+      async saveBranch() {
+        this.saving = true;
+        try {
+          const url = this.editingBranch 
+            ? `/aruna_solar/api/v1/branches/${this.editingBranch.id}`
+            : '/aruna_solar/api/v1/branches';
+          
+          const method = this.editingBranch ? 'PUT' : 'POST';
+
+          const response = await fetch(url, {
+            method: method,
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ branch: this.branchForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            this.closeDialog();
+            this.loadBranches();
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      async toggleStatus(branch) {
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/branches/${branch.id}/toggle_status`, {
+            method: 'PATCH',
+            headers: {
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            this.loadBranches();
+          } else {
+            throw new Error(data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        }
+      },
+
+      viewBranch(branchId) {
+        window.location.href = `/branches/${branchId}`;
+      },
+
+      closeDialog() {
+        this.showCreateDialog = false;
+        this.resetForm();
+      },
+
+      goToDashboard() {
+        window.location.href = '/dashboard';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
+</body>
+</html>

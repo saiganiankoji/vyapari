@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard - ArunaSolar</title>
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      color: #333;
+    }
+    
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 0.75rem 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 60px;
+    }
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+    
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .logout-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    .logout-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    
+    /* Main Content */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem;
+      height: calc(100vh - 60px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    /* Welcome Section */
+    .welcome-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-shrink: 0;
+      min-height: 60px;
+    }
+    
+    .welcome-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.25rem;
+      line-height: 1.2;
+    }
+    
+    .welcome-subtitle {
+      font-size: 0.875rem;
+      color: #6b7280;
+      font-weight: 300;
+    }
+    
+    .date-time {
+      text-align: right;
+    }
+    
+    .current-date {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #667eea;
+    }
+    
+    .current-time {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+    
+    /* Module Cards Grid */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      flex: 1;
+      margin-bottom: 1rem;
+      min-height: 0;
+    }
+    
+    .module-card {
+      background: white;
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+    }
+    
+    .module-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    
+    .module-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      line-height: 1;
+    }
+    
+    .blue { color: #3b82f6; }
+    .green { color: #10b981; }
+    .orange { color: #f59e0b; }
+    .purple { color: #8b5cf6; }
+    .teal { color: #14b8a6; }
+    .indigo { color: #6366f1; }
+    
+    .module-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #1f2937;
+      line-height: 1.2;
+    }
+    
+    .module-description {
+      color: #6b7280;
+      margin-bottom: 0.75rem;
+      line-height: 1.3;
+      font-size: 0.8rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    .module-btn {
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      color: white;
+      font-size: 0.8rem;
+    }
+    
+    .btn-blue { background: #3b82f6; }
+    .btn-green { background: #10b981; }
+    .btn-orange { background: #f59e0b; }
+    .btn-purple { background: #8b5cf6; }
+    .btn-teal { background: #14b8a6; }
+    .btn-indigo { background: #6366f1; }
+    
+    .module-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
+    /* Quick Actions */
+    .quick-actions {
+      background: white;
+      border-radius: 8px;
+      padding: 0.75rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      flex-shrink: 0;
+      min-height: 60px;
+    }
+    
+    .quick-actions-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .quick-actions-grid {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .quick-btn {
+      padding: 0.4rem 0.8rem;
+      border: none;
+      border-radius: 5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      color: white;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.8rem;
+    }
+    
+    .quick-btn .material-icons {
+      font-size: 1rem;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .modules-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .welcome-section {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+      }
+      
+      .container {
+        padding: 1rem;
+      }
+      
+      .quick-actions-grid {
+        flex-direction: column;
+      }
+    }
+    
+    @media (max-width: 1024px) and (min-width: 769px) {
+      .modules-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <span class="material-icons" style="color: #fbbf24;">wb_sunny</span>
+      <div class="header-title">ArunaSolar Dashboard</div>
+    </div>
+    <div class="user-info">
+      <div class="user-avatar">
+        <span class="material-icons">person</span>
+      </div>
+      <div>
+        <div style="font-weight: 600;"><%= format_mobile_number(@user&.mobile_number || '0000000000') %></div>
+        <div style="font-size: 0.75rem; opacity: 0.8;">Admin</div>
+      </div>
+      <button class="logout-btn" onclick="logout()">
+        <span class="material-icons" style="font-size: 1rem;">logout</span>
+        Logout
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="container">
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+      <div>
+        <div class="welcome-title">Welcome back! 👋</div>
+        <div class="welcome-subtitle">Here's your solar business overview</div>
+      </div>
+      <div class="date-time">
+        <div class="current-date" id="current-date">Loading...</div>
+        <div class="current-time" id="current-time">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Modules Grid -->
+    <div class="modules-grid">
+      <!-- Branch Management -->
+      <div class="module-card" onclick="window.location.href='/branches'">
+        <div class="module-icon material-icons blue">store</div>
+        <div class="module-title">Branch Management</div>
+        <div class="module-description">
+          Manage your branch locations, view details, and track performance across all locations.
+        </div>
+        <button class="module-btn btn-blue">Manage Branches</button>
+      </div>
+
+      <!-- Product Catalog -->
+      <div class="module-card" onclick="window.location.href='/product_skus'">
+        <div class="module-icon material-icons green">inventory_2</div>
+        <div class="module-title">Product Catalog</div>
+        <div class="module-description">
+          Manage your product SKUs, categories, and specifications for all solar products.
+        </div>
+        <button class="module-btn btn-green">Manage Products</button>
+      </div>
+
+      <!-- Purchase Orders -->
+      <div class="module-card" onclick="window.location.href='/purchase_orders'">
+        <div class="module-icon material-icons orange">receipt_long</div>
+        <div class="module-title">Purchase Orders</div>
+        <div class="module-description">
+          Create, track, and manage purchase orders. Handle vendor relationships and confirmations.
+        </div>
+        <button class="module-btn btn-orange">View Orders</button>
+      </div>
+
+      <!-- Inventory Management -->
+      <div class="module-card" onclick="window.location.href='/inventory'">
+        <div class="module-icon material-icons purple">warehouse</div>
+        <div class="module-title">Inventory Management</div>
+        <div class="module-description">
+          Track stock levels, manage inventory across branches, and handle stock adjustments.
+        </div>
+        <button class="module-btn btn-purple">Manage Inventory</button>
+      </div>
+
+      <!-- Sales Management -->
+      <div class="module-card" onclick="window.location.href='/sales'">
+        <div class="module-icon material-icons teal">point_of_sale</div>
+        <div class="module-title">Sales Management</div>
+        <div class="module-description">
+          Process sales orders, manage customer relationships, and track sales performance.
+        </div>
+        <button class="module-btn btn-teal">Manage Sales</button>
+      </div>
+
+      <!-- Analytics & Reports -->
+      <div class="module-card" onclick="alert('Analytics dashboard coming soon!')">
+        <div class="module-icon material-icons indigo">analytics</div>
+        <div class="module-title">Analytics & Reports</div>
+        <div class="module-description">
+          View comprehensive reports, analytics, and insights across all business modules.
+        </div>
+        <button class="module-btn btn-indigo">View Analytics</button>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <div class="quick-actions-title">
+        <span class="material-icons" style="color: #667eea;">flash_on</span>
+        Quick Actions
+      </div>
+      <div class="quick-actions-grid">
+        <button class="quick-btn btn-blue" onclick="window.location.href='/purchase_orders/new'">
+          <span class="material-icons">add</span>
+          New Purchase Order
+        </button>
+        <button class="quick-btn btn-green" onclick="window.location.href='/product_skus/new'">
+          <span class="material-icons">add_box</span>
+          Add Product
+        </button>
+        <button class="quick-btn btn-orange" onclick="window.location.href='/inventory'">
+          <span class="material-icons">tune</span>
+          Adjust Inventory
+        </button>
+        <button class="quick-btn btn-teal" onclick="window.location.href='/sales/new'">
+          <span class="material-icons">receipt</span>
+          New Sale
+        </button>
+        <button class="quick-btn btn-purple" onclick="window.location.href='/branches/new'">
+          <span class="material-icons">store</span>
+          Add Branch
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    console.log('DASHBOARD: Clean HTML version loading...');
+
+    // Update date and time
+    function updateDateTime() {
+      const now = new Date();
+      const options = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      };
+      
+      document.getElementById('current-date').textContent = now.toLocaleDateString('en-IN', options);
+      document.getElementById('current-time').textContent = now.toLocaleTimeString('en-IN', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    }
+
+    // Logout function
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        }).catch(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DASHBOARD: DOM loaded, initializing...');
+      updateDateTime();
+      setInterval(updateDateTime, 60000);
+    });
+
+    console.log('DASHBOARD: Clean HTML version ready!');
+  </script>
+</body>
+</html>

@@ -1,0 +1,332 @@
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Branches"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="store" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Branch Details</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Branch Header -->
+        <div class="row items-center justify-between q-mb-lg">
+          <div class="row items-center">
+            <q-icon name="store" size="xl" color="primary" class="q-mr-md"></q-icon>
+            <div>
+              <div class="text-h4 q-mb-xs">
+                <%= @branch.name %>
+                <q-badge 
+                  color="<%= @branch.is_active? ? 'positive' : 'negative' %>"
+                  label="<%= @branch.is_active? ? 'Active' : 'Inactive' %>"
+                  class="q-ml-sm"
+                ></q-badge>
+              </div>
+              <div class="text-subtitle1 text-grey-7">
+                Branch ID: <%= @branch.id %> • Created: <%= @branch.created_at.strftime("%B %d, %Y") %>
+              </div>
+            </div>
+          </div>
+          <q-btn 
+            color="orange" 
+            icon="edit" 
+            label="Edit Branch"
+            @click="editBranch"
+            size="lg"
+          ></q-btn>
+        </div>
+
+        <div class="row q-gutter-lg">
+          <!-- Branch Information Card -->
+          <div class="col-12 col-md-8">
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="info" class="q-mr-sm"></q-icon>
+                  Branch Information
+                </div>
+                
+                <q-list separator>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="business" color="primary"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Branch Name</q-item-label>
+                      <q-item-label caption class="text-h6"><%= @branch.name %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="location_on" color="red"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Address</q-item-label>
+                      <q-item-label caption>
+                        <%= @branch.address %><br>
+                        <%= [@branch.city, @branch.state, @branch.pincode].compact.join(', ') %>
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+
+                  <% if @branch.manager_name.present? %>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="person" color="blue"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Manager</q-item-label>
+                      <q-item-label caption class="text-body1"><%= @branch.manager_name %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+                  <% end %>
+
+                  <% if @branch.manager_mobile_number.present? %>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="phone" color="green"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Manager Mobile</q-item-label>
+                      <q-item-label caption>
+                        <a href="tel:<%= @branch.manager_mobile_number %>" class="text-primary">
+                          <%= format_mobile_number(@branch.manager_mobile_number) %>
+                        </a>
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+                  <% end %>
+
+                  <% if @branch.email.present? %>
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="email" color="orange"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Email</q-item-label>
+                      <q-item-label caption>
+                        <a href="mailto:<%= @branch.email %>" class="text-primary">
+                          <%= @branch.email %>
+                        </a>
+                      </q-item-label>
+                    </q-item-section>
+                  </q-item>
+                  <% end %>
+
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="schedule" color="purple"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Created</q-item-label>
+                      <q-item-label caption><%= @branch.created_at.strftime("%B %d, %Y at %I:%M %p") %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+
+                  <q-item>
+                    <q-item-section avatar>
+                      <q-icon name="update" color="teal"></q-icon>
+                    </q-item-section>
+                    <q-item-section>
+                      <q-item-label>Last Updated</q-item-label>
+                      <q-item-label caption><%= @branch.updated_at.strftime("%B %d, %Y at %I:%M %p") %></q-item-label>
+                    </q-item-section>
+                  </q-item>
+                </q-list>
+              </q-card-section>
+            </q-card>
+          </div>
+
+        </div>
+
+        <!-- Edit Dialog -->
+        <q-dialog v-model="showEditDialog" persistent>
+          <q-card style="min-width: 500px;">
+            <q-card-section>
+              <div class="text-h6">Edit Branch</div>
+            </q-card-section>
+
+            <q-card-section>
+              <q-form @submit="saveBranch" class="q-gutter-md">
+                <q-input
+                  v-model="branchForm.name"
+                  filled
+                  label="Branch Name *"
+                  :rules="[val => !!val || 'Branch name is required']"
+                ></q-input>
+
+                <q-input
+                  v-model="branchForm.address"
+                  filled
+                  label="Address *"
+                  type="textarea"
+                  rows="2"
+                  :rules="[val => !!val || 'Address is required']"
+                ></q-input>
+
+                <div class="row q-gutter-md">
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.state"
+                      filled
+                      label="State"
+                    ></q-input>
+                  </div>
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.pincode"
+                      filled
+                      label="Pincode"
+                      maxlength="6"
+                    ></q-input>
+                  </div>
+                </div>
+
+                <q-input
+                  v-model="branchForm.manager_name"
+                  filled
+                  label="Manager Name"
+                ></q-input>
+
+                <div class="row q-gutter-md">
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.manager_mobile_number"
+                      filled
+                      label="Manager Mobile"
+                      maxlength="10"
+                      :rules="[
+                        val => !val || val.length === 10 || 'Must be 10 digits',
+                        val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                      ]"
+                    ></q-input>
+                  </div>
+                  <div class="col">
+                    <q-input
+                      v-model="branchForm.email"
+                      filled
+                      label="Email"
+                      type="email"
+                    ></q-input>
+                  </div>
+                </div>
+
+                <q-toggle
+                  v-model="branchForm.is_active"
+                  label="Active Branch"
+                  color="positive"
+                ></q-toggle>
+              </q-form>
+            </q-card-section>
+
+            <q-card-actions align="right">
+              <q-btn flat label="Cancel" @click="showEditDialog = false"></q-btn>
+              <q-btn 
+                color="primary" 
+                label="Save Changes" 
+                @click="saveBranch"
+                :loading="saving"
+              ></q-btn>
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        showEditDialog: false,
+        saving: false,
+        branchId: <%= @branch.id %>,
+        branchForm: {
+          name: '<%= j(@branch.name) %>',
+          address: '<%= j(@branch.address) %>',
+          city: '<%= j(@branch.city || '') %>',
+          state: '<%= j(@branch.state || '') %>',
+          pincode: '<%= j(@branch.pincode || '') %>',
+          manager_name: '<%= j(@branch.manager_name || '') %>',
+          manager_mobile_number: '<%= j(@branch.manager_mobile_number || '') %>',
+          email: '<%= j(@branch.email || '') %>',
+          is_active: <%= @branch.is_active? %>
+        }
+      }
+    },
+    methods: {
+      editBranch() {
+        this.showEditDialog = true;
+      },
+
+      async saveBranch() {
+        this.saving = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/branches/${this.branchId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ branch: this.branchForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            this.showEditDialog = false;
+            // Reload the page to show updated data
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+
+      goBack() {
+        window.location.href = '/branches';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

@@ -1,0 +1,356 @@
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Purchases"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="edit" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Edit Purchase Order</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center q-mb-lg">
+          <q-icon name="edit" size="xl" color="orange" class="q-mr-md"></q-icon>
+          <div>
+            <div class="text-h4 q-mb-xs">Edit Purchase Order</div>
+            <div class="text-subtitle1 text-grey-7">
+              Update purchase details for Order #<%= @purchase_sku.id %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Form Card -->
+        <div class="row justify-center">
+          <div class="col-12 col-lg-8">
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="info" class="q-mr-sm"></q-icon>
+                  Purchase Information
+                </div>
+
+                <q-form @submit="updatePurchase" class="q-gutter-md">
+                  <div class="row q-gutter-md">
+                    <div class="col">
+                      <q-select
+                        v-model="purchaseForm.branch_id"
+                        filled
+                        label="Branch *"
+                        :options="branchOptions"
+                        option-value="value"
+                        option-label="label"
+                        emit-value
+                        map-options
+                        :rules="[val => !!val || 'Branch is required']"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="store"></q-icon>
+                        </template>
+                      </q-select>
+                    </div>
+                    <div class="col">
+                      <q-select
+                        v-model="purchaseForm.product_sku_id"
+                        filled
+                        label="Product *"
+                        :options="productOptions"
+                        option-value="value"
+                        option-label="label"
+                        emit-value
+                        map-options
+                        :rules="[val => !!val || 'Product is required']"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="inventory"></q-icon>
+                        </template>
+                      </q-select>
+                    </div>
+                  </div>
+
+                  <div class="row q-gutter-md">
+                    <div class="col">
+                      <q-input
+                        v-model.number="purchaseForm.quantity"
+                        filled
+                        label="Quantity *"
+                        type="number"
+                        min="1"
+                        :rules="[val => val > 0 || 'Quantity must be greater than 0']"
+                        @input="calculateTotal"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="confirmation_number"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model.number="purchaseForm.unit_cost_price"
+                        filled
+                        label="Unit Cost Price *"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        :rules="[val => val > 0 || 'Unit price must be greater than 0']"
+                        @input="calculateTotal"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="currency_rupee"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model="calculatedTotal"
+                        filled
+                        label="Total Cost"
+                        readonly
+                        bg-color="grey-2"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="calculate"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+
+                  <q-separator class="q-my-lg"></q-separator>
+
+                  <div class="text-h6 q-mb-md">
+                    <q-icon name="business" class="q-mr-sm"></q-icon>
+                    Vendor Information
+                  </div>
+
+                  <q-input
+                    v-model="purchaseForm.vendor_name"
+                    filled
+                    label="Vendor Name *"
+                    :rules="[val => !!val || 'Vendor name is required']"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="business"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <q-input
+                    v-model="purchaseForm.vendor_address"
+                    filled
+                    label="Vendor Address"
+                    type="textarea"
+                    rows="2"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="location_on"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <div class="row q-gutter-md">
+                    <div class="col">
+                      <q-input
+                        v-model="purchaseForm.vendor_mobile_number"
+                        filled
+                        label="Vendor Mobile"
+                        maxlength="10"
+                        :rules="[
+                          val => !val || val.length === 10 || 'Must be 10 digits',
+                          val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                        ]"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="phone"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model="purchaseForm.purchase_date"
+                        filled
+                        label="Purchase Date *"
+                        type="date"
+                        :rules="[val => !!val || 'Purchase date is required']"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="event"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+
+                  <q-separator class="q-my-lg"></q-separator>
+
+                  <div class="row items-center justify-between">
+                    <div class="q-gutter-sm">
+                      <q-btn 
+                        flat
+                        color="grey-7"
+                        label="Cancel" 
+                        @click="goBack"
+                        size="lg"
+                      ></q-btn>
+                      <q-btn 
+                        color="orange" 
+                        label="Update Purchase" 
+                        type="submit"
+                        icon="save"
+                        :loading="saving"
+                        size="lg"
+                        class="q-px-xl"
+                      ></q-btn>
+                    </div>
+                  </div>
+                </q-form>
+              </q-card-section>
+            </q-card>
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        saving: false,
+        purchaseId: <%= @purchase_sku.id %>,
+        branchOptions: [],
+        productOptions: [],
+        purchaseForm: {
+          branch_id: <%= @purchase_sku.branch_id %>,
+          product_sku_id: <%= @purchase_sku.product_sku_id %>,
+          quantity: <%= @purchase_sku.quantity %>,
+          unit_cost_price: <%= @purchase_sku.unit_cost_price %>,
+          vendor_name: '<%= j(@purchase_sku.vendor_name) %>',
+          vendor_address: '<%= j(@purchase_sku.vendor_address || '') %>',
+          vendor_mobile_number: '<%= j(@purchase_sku.vendor_mobile_number || '') %>',
+          purchase_date: '<%= @purchase_sku.purchase_date.strftime("%Y-%m-%d") %>'
+        }
+      }
+    },
+    computed: {
+      calculatedTotal() {
+        const quantity = this.purchaseForm.quantity || 0;
+        const unitPrice = this.purchaseForm.unit_cost_price || 0;
+        return `₹${this.formatCurrency(quantity * unitPrice)}`;
+      }
+    },
+    mounted() {
+      this.loadOptions();
+    },
+    methods: {
+      async loadOptions() {
+        try {
+          const response = await fetch('/aruna_solar/api/v1/purchase_skus/options', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branchOptions = data.branches.map(([name, id]) => ({
+              label: name,
+              value: id
+            }));
+            
+            this.productOptions = data.product_skus.map(([name, id, code]) => ({
+              label: `${name} (${code})`,
+              value: id
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading options:', error);
+        }
+      },
+
+      async updatePurchase() {
+        // Validation
+        if (!this.purchaseForm.branch_id || !this.purchaseForm.product_sku_id || 
+            !this.purchaseForm.quantity || !this.purchaseForm.unit_cost_price || 
+            !this.purchaseForm.vendor_name || !this.purchaseForm.purchase_date) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill in all required fields'
+          });
+          return;
+        }
+
+        this.saving = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/purchase_skus/${this.purchaseId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ purchase_sku: this.purchaseForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            
+            // Redirect to purchase detail page after successful update
+            setTimeout(() => {
+              window.location.href = `/purchase_skus/${this.purchaseId}`;
+            }, 1500);
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      calculateTotal() {
+        // The computed property handles this automatically
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      goBack() {
+        window.location.href = '/purchase_skus';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

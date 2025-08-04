@@ -1,0 +1,278 @@
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goToShow" icon="arrow_back" label="Back to Branch"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="edit" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Edit Branch</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Page Header -->
+        <div class="row items-center q-mb-lg">
+          <q-icon name="edit" size="xl" color="orange" class="q-mr-md"></q-icon>
+          <div>
+            <div class="text-h4 q-mb-xs">Edit Branch</div>
+            <div class="text-subtitle1 text-grey-7">
+              Update <%= @branch.name %> information
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit Form Card -->
+        <div class="row justify-center">
+          <div class="col-12 col-md-8">
+            <q-card>
+              <q-card-section>
+                <div class="text-h6 q-mb-md">
+                  <q-icon name="info" class="q-mr-sm"></q-icon>
+                  Branch Information
+                </div>
+
+                <q-form @submit="updateBranch" class="q-gutter-md">
+                  <q-input
+                    v-model="branchForm.address"
+                    filled
+                    label="Address *"
+                    type="textarea"
+                    rows="3"
+                    placeholder="Enter complete address"
+                    :rules="[val => !!val || 'Address is required']"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="location_on"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <div class="row q-gutter-md">
+                    <div class="col">
+                      <q-input
+                        v-model="branchForm.city"
+                        filled
+                        label="City"
+                        placeholder="Enter city"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="location_city"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model="branchForm.state"
+                        filled
+                        label="State"
+                        placeholder="Enter state"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="map"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model="branchForm.pincode"
+                        filled
+                        label="Pincode"
+                        placeholder="6-digit pincode"
+                        maxlength="6"
+                        :rules="[
+                          val => !val || val.length === 6 || 'Pincode must be 6 digits',
+                          val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                        ]"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="local_post_office"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+
+                  <q-separator class="q-my-lg"></q-separator>
+
+                  <div class="text-h6 q-mb-md">
+                    <q-icon name="person" class="q-mr-sm"></q-icon>
+                    Manager Information
+                  </div>
+
+                  <q-input
+                    v-model="branchForm.manager_name"
+                    filled
+                    label="Manager Name"
+                    placeholder="Enter manager's full name"
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="person"></q-icon>
+                    </template>
+                  </q-input>
+
+                  <div class="row q-gutter-md">
+                    <div class="col">
+                      <q-input
+                        v-model="branchForm.manager_mobile_number"
+                        filled
+                        label="Manager Mobile"
+                        placeholder="10-digit mobile number"
+                        maxlength="10"
+                        :rules="[
+                          val => !val || val.length === 10 || 'Must be 10 digits',
+                          val => !val || /^[0-9]+$/.test(val) || 'Only numbers allowed'
+                        ]"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="phone"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                    <div class="col">
+                      <q-input
+                        v-model="branchForm.email"
+                        filled
+                        label="Email"
+                        type="email"
+                        placeholder="manager@branch.com"
+                      >
+                        <template v-slot:prepend>
+                          <q-icon name="email"></q-icon>
+                        </template>
+                      </q-input>
+                    </div>
+                  </div>
+
+                  <q-separator class="q-my-lg"></q-separator>
+
+                  <div class="row items-center justify-between">
+                    <q-toggle
+                      v-model="branchForm.is_active"
+                      label="Active Branch"
+                      color="positive"
+                      size="lg"
+                    ></q-toggle>
+                    
+                    <div class="q-gutter-sm">
+                      <q-btn 
+                        flat
+                        color="grey-7"
+                        label="Cancel" 
+                        @click="goToShow"
+                        size="lg"
+                      ></q-btn>
+                      <q-btn 
+                        color="orange" 
+                        label="Update Branch" 
+                        type="submit"
+                        icon="save"
+                        :loading="saving"
+                        size="lg"
+                        class="q-px-xl"
+                      ></q-btn>
+                    </div>
+                  </div>
+                </q-form>
+              </q-card-section>
+            </q-card>
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const app = Vue.createApp({
+    data() {
+      return {
+        saving: false,
+        branchId: <%= @branch.id %>,
+        branchForm: {
+          name: '<%= j(@branch.name) %>',
+          address: '<%= j(@branch.address) %>',
+          city: '<%= j(@branch.city || '') %>',
+          state: '<%= j(@branch.state || '') %>',
+          pincode: '<%= j(@branch.pincode || '') %>',
+          manager_name: '<%= j(@branch.manager_name || '') %>',
+          manager_mobile_number: '<%= j(@branch.manager_mobile_number || '') %>',
+          email: '<%= j(@branch.email || '') %>',
+          is_active: <%= @branch.is_active? %>
+        }
+      }
+    },
+    methods: {
+      async updateBranch() {
+        // Validate required fields
+        if (!this.branchForm.name || !this.branchForm.address) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill in all required fields'
+          });
+          return;
+        }
+
+        this.saving = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/branches/${this.branchId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ branch: this.branchForm })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+            
+            // Redirect to branch detail page after successful update
+            setTimeout(() => {
+              window.location.href = `/branches/${this.branchId}`;
+            }, 1500);
+          } else {
+            throw new Error(data.errors.join(', ') || data.message);
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.saving = false;
+        }
+      },
+
+      goToShow() {
+        window.location.href = `/branches/${this.branchId}`;
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>

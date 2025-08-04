@@ -1,0 +1,213 @@
+<!-- app/views/api/v1/inventory/transactions.html.erb -->
+<div id="app">
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Inventory"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="history" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Inventory Transaction History</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <!-- Inventory Info Card -->
+        <q-card class="q-mb-lg" v-if="inventoryInfo">
+          <q-card-section>
+            <div class="row items-center">
+              <div class="col">
+                <div class="text-h6">{{ inventoryInfo.sku_name }}</div>
+                <div class="text-subtitle2 text-grey-7">
+                  Code: {{ inventoryInfo.sku_code }} | Branch: {{ inventoryInfo.branch_name }}
+                </div>
+              </div>
+              <div class="col-auto">
+                <q-chip color="primary" text-color="white" size="lg">
+                  Current Stock: {{ inventoryInfo.current_quantity }} units
+                </q-chip>
+              </div>
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Transactions Table -->
+        <q-card>
+          <q-card-section>
+            <div class="text-h6 q-mb-md">Transaction History</div>
+            
+            <q-table
+              :rows="transactions"
+              :columns="columns"
+              :loading="loading"
+              :pagination="pagination"
+              @request="onRequest"
+              row-key="id"
+              flat
+              bordered
+            >
+              <template v-slot:body-cell-transaction_type="props">
+                <q-td :props="props">
+                  <q-badge 
+                    :color="getTransactionTypeColor(props.row.transaction_type)" 
+                    :label="props.value"
+                    class="q-pa-sm"
+                  ></q-badge>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-quantity_display="props">
+                <q-td :props="props">
+                  <span :class="getQuantityClass(props.row.quantity)">
+                    {{ props.value }}
+                  </span>
+                </q-td>
+              </template>
+
+              <template v-slot:body-cell-balance_after="props">
+                <q-td :props="props">
+                  <strong>{{ props.value }}</strong>
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<link href="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.prod.css" rel="stylesheet" type="text/css">
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const { createApp } = Vue;
+  
+  const app = createApp({
+    data() {
+      return {
+        transactions: [],
+        inventoryInfo: null,
+        loading: false,
+        inventoryId: <%= params[:id] %>,
+        pagination: {
+          sortBy: 'created_at',
+          descending: true,
+          page: 1,
+          rowsPerPage: 20,
+          rowsNumber: 0
+        },
+        columns: [
+          { name: 'created_at', label: 'Date & Time', align: 'left', field: 'created_at', sortable: true },
+          { name: 'transaction_type', label: 'Type', align: 'center', field: 'transaction_type' },
+          { name: 'quantity_display', label: 'Quantity Change', align: 'center', field: 'quantity_display' },
+          { name: 'balance_after', label: 'Balance After', align: 'center', field: 'balance_after' },
+          { name: 'source_info', label: 'Source', align: 'left', field: 'source_info' },
+          { name: 'notes', label: 'Notes', align: 'left', field: 'notes' }
+        ]
+      }
+    },
+    mounted() {
+      console.log('Transactions Vue app mounted');
+      this.loadTransactions();
+    },
+    methods: {
+      async loadTransactions() {
+        this.loading = true;
+        try {
+          const params = new URLSearchParams({
+            page: this.pagination.page,
+            per_page: this.pagination.rowsPerPage
+          });
+
+          console.log('Loading transactions for inventory:', this.inventoryId);
+
+          const response = await fetch(`/aruna_solar/api/v1/inventory/${this.inventoryId}/transactions?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          console.log('Transactions response:', data);
+          
+          if (response.ok && data.data) {
+            this.transactions = data.data.transactions || [];
+            this.inventoryInfo = data.data.inventory;
+            if (data.data.pagination) {
+              this.pagination.rowsNumber = data.data.pagination.total_count;
+            }
+            console.log('Transactions loaded:', this.transactions.length);
+          } else {
+            throw new Error(data.message || 'Failed to load transactions');
+          }
+        } catch (error) {
+          console.error('Transaction loading error:', error);
+          this.$q.notify({
+            type: 'negative',
+            message: error.message || 'Failed to load transactions'
+          });
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      onRequest(props) {
+        console.log('Table request:', props);
+        this.pagination = props.pagination;
+        this.loadTransactions();
+      },
+
+      getTransactionTypeColor(type) {
+        switch (type.toLowerCase()) {
+          case 'purchase': return 'green';
+          case 'sale': return 'red';
+          case 'adjustment': return 'orange';
+          case 'transfer': return 'blue';
+          default: return 'grey';
+        }
+      },
+
+      getQuantityClass(quantity) {
+        if (quantity > 0) {
+          return 'text-positive text-weight-bold';
+        } else if (quantity < 0) {
+          return 'text-negative text-weight-bold';
+        } else {
+          return 'text-grey-7';
+        }
+      },
+
+      goBack() {
+        window.location.href = '/inventory';
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    }
+  });
+  
+  app.use(Quasar, {
+    config: {}
+  });
+  
+  app.mount('#app');
+});
+</script>

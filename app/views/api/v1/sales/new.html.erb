@@ -1,0 +1,1002 @@
+<!-- app/views/api/v1/sales/new.html.erb - SIMPLE TABLE FORMAT WITH VALIDATIONS -->
+<style>
+  [v-cloak] { display: none; }
+  
+  .confirm-section {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%);
+    border: 2px solid #ffc107;
+    border-radius: 10px;
+    padding: 20px;
+    margin: 20px 0;
+  }
+
+  .smart-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #fafafa;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-family: 'Roboto', sans-serif;
+  }
+  
+  .smart-loader.show {
+    display: flex;
+  }
+  
+  .loader-content {
+    text-align: center;
+    animation: fadeInUp 0.3s ease-out;
+  }
+  
+  .loader-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    border: 3px solid #e3f2fd;
+    border-top: 3px solid #1976d2;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>
+
+<!-- Smart loader -->
+<div id="smart-loader" class="smart-loader">
+  <div class="loader-content">
+    <div class="loader-icon"></div>
+    <div class="loader-title">Loading Sale Form...</div>
+    <div class="loader-message">Preparing your data</div>
+  </div>
+</div>
+
+<div id="app" v-cloak>
+  <q-layout view="hHh Lpr lff">
+    <!-- Header -->
+    <q-header elevated class="bg-primary">
+      <q-toolbar>
+        <q-btn flat @click="goBack" icon="arrow_back" label="Back to Sales"></q-btn>
+        <q-separator vertical inset class="q-mx-sm"></q-separator>
+        <q-icon name="add_shopping_cart" size="md" class="q-mr-sm"></q-icon>
+        <q-toolbar-title>Record New Sale</q-toolbar-title>
+        <q-space></q-space>
+        <q-btn flat @click="logout" icon="logout" label="Logout"></q-btn>
+      </q-toolbar>
+    </q-header>
+
+    <!-- Page Content -->
+    <q-page-container>
+      <q-page class="q-pa-md">
+        
+        <div class="row justify-center">
+          <div class="col-12 col-xl-10">
+            
+            <!-- Step Indicator -->
+            <q-card class="q-mb-md">
+              <q-card-section>
+                <q-stepper v-model="currentStep" flat class="no-shadow">
+                  <q-step :name="1" title="Enter Sale Details" icon="edit" :done="currentStep > 1">
+                    Enter what was sold and customer details
+                  </q-step>
+                  <q-step :name="2" title="Confirm & Deduct Inventory" icon="inventory" :done="saleConfirmed">
+                    Review and confirm to update inventory
+                  </q-step>
+                  <q-step :name="3" title="Add Payments" icon="payment" :done="false">
+                    Record payments received
+                  </q-step>
+                </q-stepper>
+              </q-card-section>
+            </q-card>
+
+            <!-- Step 1: Sale Entry Form -->
+            <div v-if="currentStep === 1">
+              <q-form @submit="saveOrUpdateDraft" class="q-gutter-md">
+                
+                <!-- Show if editing existing draft -->
+                <q-banner v-if="createdSale" class="bg-blue-1 text-blue-8 q-mb-md" rounded>
+                  <template v-slot:avatar>
+                    <q-icon name="edit" />
+                  </template>
+                  <strong>Editing Draft Sale:</strong> {{ createdSale.invoice_number }}
+                </q-banner>
+
+                <!-- Customer Information Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="person" class="q-mr-sm text-primary"></q-icon>
+                      Customer Information
+                    </div>
+                    
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model="saleForm.customer_name"
+                          filled
+                          label="Customer Name *"
+                          :rules="[val => !!val || 'Customer name is required']"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model="saleForm.customer_phone"
+                          filled
+                          label="Phone Number"
+                          type="tel"
+                        ></q-input>
+                      </div>
+                      <div class="col-12">
+                        <q-input
+                          v-model="saleForm.customer_address"
+                          filled
+                          type="textarea"
+                          label="Customer Address"
+                          rows="2"
+                        ></q-input>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Information Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="business" class="q-mr-sm text-primary"></q-icon>
+                      Sale Information
+                    </div>
+                    
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-4">
+                        <q-select
+                          v-model="saleForm.branch_id"
+                          filled
+                          label="Branch *"
+                          :options="branchOptions"
+                          option-value="id"
+                          option-label="name"
+                          emit-value
+                          map-options
+                          :rules="[val => !!val || 'Branch is required']"
+                          @update:model-value="onBranchChange"
+                        ></q-select>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-input
+                          v-model="saleForm.sale_date"
+                          filled
+                          label="Sale Date *"
+                          type="date"
+                          :rules="[val => !!val || 'Sale date is required']"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <q-input
+                          v-model="saleForm.due_date"
+                          filled
+                          label="Due Date"
+                          type="date"
+                          hint="Leave empty if fully paid"
+                        ></q-input>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Items Card -->
+                <q-card>
+                  <q-card-section>
+                    <div class="row items-center justify-between q-mb-md">
+                      <div class="text-h6">
+                        <q-icon name="shopping_basket" class="q-mr-sm text-primary"></q-icon>
+                        Items Sold
+                      </div>
+                      <q-btn
+                        color="primary"
+                        icon="add"
+                        label="Add Item"
+                        @click="addSaleItem"
+                        outline
+                        :disable="!saleForm.branch_id"
+                      ></q-btn>
+                    </div>
+
+                    <q-table
+                      :rows="visibleSaleItems"
+                      :columns="itemColumns"
+                      row-key="temp_id"
+                      flat
+                      bordered
+                      hide-pagination
+                      :pagination="{ rowsPerPage: 0 }"
+                    >
+                      <template v-slot:body-cell-product="props">
+                        <q-td :props="props">
+                          <q-select
+                            v-model="props.row.product_sku_id"
+                            filled
+                            dense
+                            label="Select Product"
+                            :options="availableProductsForItem(getItemIndex(props.row))"
+                            option-value="id"
+                            option-label="display_name"
+                            emit-value
+                            map-options
+                            clearable
+                            use-input
+                            @filter="filterProducts"
+                            @update:model-value="(val) => updateItemProduct(getItemIndex(props.row), val)"
+                            :rules="[val => !!val || 'Product is required']"
+                            :loading="loadingProducts"
+                            :disable="!saleForm.branch_id"
+                          >
+                            <template v-slot:no-option>
+                              <q-item>
+                                <q-item-section class="text-grey">
+                                  {{ !saleForm.branch_id ? 'Select branch first' : 'No products found' }}
+                                </q-item-section>
+                              </q-item>
+                            </template>
+                          </q-select>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-quantity="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.quantity"
+                            filled
+                            dense
+                            type="number"
+                            min="1"
+                            :max="props.row.available_stock || 999999"
+                            step="1"
+                            @update:model-value="calculateItemTotal(getItemIndex(props.row))"
+                            :rules="[
+                              val => val > 0 || 'Quantity must be greater than 0',
+                              val => !props.row.available_stock || val <= props.row.available_stock || `Only ${props.row.available_stock} units available`
+                            ]"
+                            style="min-width: 100px"
+                          >
+                            <template v-slot:hint v-if="props.row.available_stock">
+                              Available: {{ props.row.available_stock }}
+                            </template>
+                          </q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-unit_price="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.unit_price"
+                            filled
+                            dense
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            prefix="₹"
+                            @update:model-value="calculateItemTotal(getItemIndex(props.row))"
+                            :rules="[val => val >= 0 || 'Price must be 0 or greater']"
+                            style="min-width: 120px"
+                          ></q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-discount="props">
+                        <q-td :props="props">
+                          <q-input
+                            v-model.number="props.row.discount_percentage"
+                            filled
+                            dense
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            suffix="%"
+                            @update:model-value="calculateItemTotal(getItemIndex(props.row))"
+                            style="min-width: 100px"
+                          ></q-input>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-total="props">
+                        <q-td :props="props">
+                          <div class="text-weight-bold text-positive">
+                            ₹{{ formatCurrency(props.row.calculated_total || 0) }}
+                          </div>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:body-cell-actions="props">
+                        <q-td :props="props">
+                          <q-btn
+                            flat
+                            dense
+                            color="red"
+                            icon="delete"
+                            @click="removeSaleItem(getItemIndex(props.row))"
+                            :disable="visibleSaleItems.length <= 1"
+                          ></q-btn>
+                        </q-td>
+                      </template>
+
+                      <template v-slot:no-data>
+                        <div class="full-width row flex-center text-accent q-gutter-sm q-pa-lg">
+                          <span v-if="!saleForm.branch_id">Please select a branch first, then click "Add Item"</span>
+                          <span v-else>Click "Add Item" to start adding products</span>
+                        </div>
+                      </template>
+                    </q-table>
+
+                  </q-card-section>
+                </q-card>
+
+                <!-- Sale Summary -->
+                <q-card v-if="visibleSaleItems.length > 0">
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">
+                      <q-icon name="calculate" class="q-mr-sm text-primary"></q-icon>
+                      Sale Summary
+                    </div>
+                    
+                    <div class="row">
+                      <div class="col-12 col-md-6">
+                        <q-input
+                          v-model.number="saleForm.discount_amount"
+                          filled
+                          label="Additional Discount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          prefix="₹"
+                          @update:model-value="calculateTotals"
+                        ></q-input>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <div class="bg-grey-1 q-pa-md rounded-borders">
+                          <div class="row justify-between q-mb-sm">
+                            <span>Subtotal:</span>
+                            <span class="text-weight-bold">₹{{ formatCurrency(calculatedSubtotal) }}</span>
+                          </div>
+                          <div class="row justify-between q-mb-sm">
+                            <span>Discount:</span>
+                            <span class="text-weight-bold">-₹{{ formatCurrency(calculatedDiscount) }}</span>
+                          </div>
+                          <q-separator class="q-my-sm"></q-separator>
+                          <div class="row justify-between">
+                            <span class="text-h6">Final Amount:</span>
+                            <span class="text-h6 text-positive">₹{{ formatCurrency(calculatedFinalAmount) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Form Actions -->
+                <div class="row justify-end q-gutter-md q-mt-lg" v-if="visibleSaleItems.length > 0">
+                  <q-btn
+                    color="grey"
+                    label="Cancel"
+                    @click="goBack"
+                    outline
+                  ></q-btn>
+                  <q-btn
+                    color="primary"
+                    :label="createdSale ? 'Update Draft' : 'Save as Draft'"
+                    type="submit"
+                    :loading="submitting"
+                    :disable="!isFormValid || submitting"
+                  ></q-btn>
+                </div>
+
+              </q-form>
+            </div>
+
+            <!-- Step 2: Confirmation -->
+            <div v-if="currentStep === 2 && !saleConfirmed">
+              <div class="confirm-section">
+                <div class="text-center q-mb-md">
+                  <q-icon name="warning" size="xl" color="warning"></q-icon>
+                  <div class="text-h5 q-mt-sm">Ready to Confirm Sale?</div>
+                  <div class="text-subtitle1 text-grey-7">
+                    This will deduct inventory and lock the sale for editing
+                  </div>
+                </div>
+
+                <!-- Sale Summary for Confirmation -->
+                <q-card class="q-mb-md">
+                  <q-card-section>
+                    <div class="text-h6 q-mb-md">Sale Summary</div>
+                    <div class="row q-gutter-md">
+                      <div class="col-12 col-md-6">
+                        <div class="text-subtitle2">Customer: {{ saleForm.customer_name }}</div>
+                        <div class="text-subtitle2">Branch: {{ selectedBranchName }}</div>
+                        <div class="text-subtitle2">Invoice: {{ createdSale ? createdSale.invoice_number : 'Will be generated' }}</div>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <div class="text-subtitle2">Items: {{ visibleSaleItems.length }}</div>
+                        <div class="text-subtitle2">Final Amount: ₹{{ formatCurrency(calculatedFinalAmount) }}</div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <!-- Action Buttons -->
+                <div class="row justify-center q-gutter-md">
+                  <q-btn
+                    color="grey"
+                    label="Go Back to Edit"
+                    @click="currentStep = 1"
+                    outline
+                  ></q-btn>
+                  <q-btn
+                    color="green"
+                    label="Confirm Sale & Deduct Inventory"
+                    @click="confirmSale"
+                    :loading="confirming"
+                    size="lg"
+                  ></q-btn>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3: Payment Management -->
+            <div v-if="currentStep === 3 || saleConfirmed">
+              <q-card>
+                <q-card-section>
+                  <div class="text-center q-mb-md">
+                    <q-icon name="check_circle" size="xl" color="green"></q-icon>
+                    <div class="text-h5 text-green q-mt-sm">Sale Confirmed!</div>
+                    <div class="text-subtitle1 text-grey-7">
+                      Inventory has been deducted. You can now manage payments.
+                    </div>
+                  </div>
+
+                  <div class="row justify-center q-gutter-md q-mt-lg">
+                    <q-btn
+                      color="green"
+                      icon="payment"
+                      label="Add Payment"
+                      @click="goToPayments"
+                      size="lg"
+                    ></q-btn>
+                    <q-btn
+                      color="primary"
+                      icon="visibility"
+                      label="View Sale Details"
+                      @click="viewSale"
+                      outline
+                    ></q-btn>
+                    <q-btn
+                      color="grey"
+                      icon="list"
+                      label="Back to Sales List"
+                      @click="goBack"
+                      outline
+                    ></q-btn>
+                  </div>
+                </q-card-section>
+              </q-card>
+            </div>
+
+          </div>
+        </div>
+
+      </q-page>
+    </q-page-container>
+  </q-layout>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quasar@2.14.2/dist/quasar.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Smart loading logic
+  const smartLoader = document.getElementById('smart-loader');
+  const appContainer = document.getElementById('app');
+  
+  let loadingTimer = setTimeout(() => {
+    if (smartLoader) {
+      smartLoader.classList.add('show');
+    }
+  }, 800);
+  
+  function hideLoader() {
+    if (loadingTimer) clearTimeout(loadingTimer);
+    if (smartLoader) {
+      smartLoader.classList.remove('show');
+    }
+  }
+
+  const app = Vue.createApp({
+    data() {
+      return {
+        currentStep: 1,
+        submitting: false,
+        confirming: false,
+        saleConfirmed: false,
+        loadingProducts: false,
+        branchOptions: [],
+        productOptions: [],
+        filteredProducts: [],
+        createdSale: null,
+        tempIdCounter: 1000,
+        hasUnsavedChanges: false,
+        saleForm: {
+          customer_name: '',
+          customer_phone: '',
+          customer_address: '',
+          customer_gst_number: '',
+          branch_id: null,
+          sale_date: '',
+          due_date: '',
+          discount_amount: 0,
+          notes: '',
+          sale_items_attributes: []
+        },
+        itemColumns: [
+          { name: 'product', label: 'Product', align: 'left' },
+          { name: 'quantity', label: 'Qty', align: 'center' },
+          { name: 'unit_price', label: 'Unit Price', align: 'right' },
+          { name: 'discount', label: 'Discount %', align: 'center' },
+          { name: 'total', label: 'Total', align: 'right' },
+          { name: 'actions', label: 'Actions', align: 'center' }
+        ]
+      }
+    },
+    computed: {
+      visibleSaleItems() {
+        return this.saleForm.sale_items_attributes.filter(item => !item._destroy);
+      },
+      
+      calculatedSubtotal() {
+        return this.visibleSaleItems.reduce((sum, item) => {
+          const quantity = parseFloat(item.quantity) || 0;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          return sum + (quantity * unitPrice);
+        }, 0);
+      },
+      
+      calculatedDiscount() {
+        const itemDiscounts = this.visibleSaleItems.reduce((sum, item) => {
+          const quantity = parseFloat(item.quantity) || 0;
+          const unitPrice = parseFloat(item.unit_price) || 0;
+          const discountPercentage = parseFloat(item.discount_percentage) || 0;
+          const itemSubtotal = quantity * unitPrice;
+          return sum + (itemSubtotal * discountPercentage / 100);
+        }, 0);
+        return itemDiscounts + (parseFloat(this.saleForm.discount_amount) || 0);
+      },
+      
+      calculatedFinalAmount() {
+        return Math.max(0, this.calculatedSubtotal - this.calculatedDiscount);
+      },
+      
+      selectedBranchName() {
+        const branch = this.branchOptions.find(b => b.id === this.saleForm.branch_id);
+        return branch ? branch.name : '';
+      },
+      
+      selectedProductIds() {
+        return this.visibleSaleItems
+          .map(item => item.product_sku_id)
+          .filter(id => id !== null);
+      },
+      
+      isFormValid() {
+        return this.saleForm.customer_name &&
+               this.saleForm.branch_id &&
+               this.saleForm.sale_date &&
+               this.visibleSaleItems.length > 0 &&
+               this.visibleSaleItems.every(item => 
+                 item.product_sku_id && 
+                 item.quantity > 0 && 
+                 item.unit_price >= 0
+               );
+      }
+    },
+    mounted() {
+      hideLoader();
+      this.loadFormOptions();
+      this.setTodaysDate();
+      this.addSaleItem();
+    },
+    methods: {
+      setTodaysDate() {
+        const today = new Date().toISOString().split('T')[0];
+        this.saleForm.sale_date = today;
+      },
+
+      async loadFormOptions() {
+        try {
+          const response = await fetch('/aruna_solar/api/v1/sales/options', {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.branchOptions = data.branches || [];
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Error loading form options: ' + error.message
+          });
+        }
+      },
+
+      async loadProductsForBranch(branchId, searchQuery = '') {
+        if (!branchId) {
+          this.productOptions = [];
+          this.filteredProducts = [];
+          return;
+        }
+
+        this.loadingProducts = true;
+        try {
+          const params = new URLSearchParams({ branch_id: branchId });
+          if (searchQuery) {
+            params.append('search', searchQuery);
+          }
+
+          const response = await fetch(`/aruna_solar/api/v1/sales/options?${params}`, {
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok) {
+            this.productOptions = (data.product_skus || []).map(product => ({
+              ...product,
+              display_name: `${product.name} - ${product.code} (${product.available_stock || 0} available)`
+            }));
+            this.filteredProducts = [...this.productOptions];
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Error loading products: ' + error.message
+          });
+        } finally {
+          this.loadingProducts = false;
+        }
+      },
+
+      filterProducts(val, update) {
+        if (val === '') {
+          update(() => {
+            this.loadProductsForBranch(this.saleForm.branch_id);
+          });
+          return;
+        }
+
+        update(() => {
+          this.loadProductsForBranch(this.saleForm.branch_id, val);
+        });
+      },
+
+      availableProductsForItem(itemIndex) {
+        const currentItem = this.saleForm.sale_items_attributes[itemIndex];
+        const otherSelectedIds = this.saleForm.sale_items_attributes
+          .filter((item, index) => index !== itemIndex && !item._destroy)
+          .map(item => item.product_sku_id)
+          .filter(id => id !== null);
+
+        return this.filteredProducts.filter(product => 
+          !otherSelectedIds.includes(product.id) || product.id === currentItem?.product_sku_id
+        );
+      },
+
+      getItemIndex(item) {
+        return this.saleForm.sale_items_attributes.findIndex(i => i.temp_id === item.temp_id);
+      },
+
+      addSaleItem() {
+        this.saleForm.sale_items_attributes.push({
+          temp_id: this.tempIdCounter++,
+          product_sku_id: null,
+          quantity: 1,
+          unit_price: 0,
+          discount_percentage: 0,
+          calculated_total: 0,
+          _destroy: false
+        });
+        this.hasUnsavedChanges = true;
+      },
+
+      removeSaleItem(index) {
+        const item = this.saleForm.sale_items_attributes[index];
+        
+        if (this.isExistingItem(item)) {
+          item._destroy = true;
+        } else {
+          this.saleForm.sale_items_attributes.splice(index, 1);
+        }
+        
+        this.hasUnsavedChanges = true;
+        this.calculateTotals();
+      },
+
+      isExistingItem(item) {
+        return item.id && !isNaN(item.id);
+      },
+
+      updateItemProduct(itemIndex, productSkuId) {
+        if (productSkuId) {
+          const isDuplicate = this.saleForm.sale_items_attributes.some((item, index) => 
+            index !== itemIndex && !item._destroy && item.product_sku_id === productSkuId
+          );
+          
+          if (isDuplicate) {
+            this.saleForm.sale_items_attributes[itemIndex].product_sku_id = null;
+            this.$q.notify({
+              type: 'negative',
+              message: 'This product is already selected in another item',
+              position: 'top'
+            });
+            return;
+          }
+
+          const product = this.productOptions.find(p => p.id === productSkuId);
+          if (product) {
+            this.saleForm.sale_items_attributes[itemIndex].available_stock = product.available_stock || 0;
+            
+            if (this.saleForm.sale_items_attributes[itemIndex].quantity > product.available_stock) {
+              this.saleForm.sale_items_attributes[itemIndex].quantity = Math.min(1, product.available_stock);
+              this.$q.notify({
+                type: 'warning',
+                message: `Only ${product.available_stock} units available for ${product.name}`,
+                position: 'top'
+              });
+            }
+          }
+        }
+        
+        this.hasUnsavedChanges = true;
+        this.calculateItemTotal(itemIndex);
+      },
+
+      onBranchChange(branchId) {
+        if (branchId) {
+          this.loadProductsForBranch(branchId);
+        } else {
+          this.productOptions = [];
+          this.filteredProducts = [];
+        }
+        
+        // Clear all items when branch changes
+        this.saleForm.sale_items_attributes.forEach(item => {
+          item.product_sku_id = null;
+          item.available_stock = 0;
+        });
+        
+        this.hasUnsavedChanges = true;
+      },
+
+      calculateItemTotal(itemIndex) {
+        const item = this.saleForm.sale_items_attributes[itemIndex];
+        const quantity = parseFloat(item.quantity) || 0;
+        const unitPrice = parseFloat(item.unit_price) || 0;
+        const discountPercentage = parseFloat(item.discount_percentage) || 0;
+        
+        const subtotal = quantity * unitPrice;
+        const discountAmount = (subtotal * discountPercentage) / 100;
+        item.calculated_total = subtotal - discountAmount;
+        
+        this.hasUnsavedChanges = true;
+        this.calculateTotals();
+      },
+
+      calculateTotals() {
+        this.$forceUpdate();
+      },
+
+      async saveOrUpdateDraft() {
+        if (!this.isFormValid) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please fill all required fields',
+            position: 'top'
+          });
+          return;
+        }
+
+        if (this.submitting) return;
+        
+        this.submitting = true;
+        try {
+          const cleanedSaleForm = {
+            ...this.saleForm,
+            sale_items_attributes: this.saleForm.sale_items_attributes
+              .filter(item => !item._destroy && item.product_sku_id && item.quantity > 0)
+              .map(item => ({
+                product_sku_id: item.product_sku_id,
+                quantity: parseInt(item.quantity),
+                unit_price: parseFloat(item.unit_price),
+                discount_percentage: parseFloat(item.discount_percentage) || 0
+              }))
+          };
+
+          let response, data;
+
+          if (this.createdSale) {
+            response = await fetch(`/aruna_solar/api/v1/sales/${this.createdSale.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              },
+              body: JSON.stringify({ sale: cleanedSaleForm })
+            });
+          } else {
+            response = await fetch('/aruna_solar/api/v1/sales', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+              },
+              body: JSON.stringify({ sale: cleanedSaleForm })
+            });
+          }
+
+          data = await response.json();
+
+          if (response.ok && data.success) {
+            if (!this.createdSale) {
+              this.createdSale = data.sale;
+            }
+            
+            this.hasUnsavedChanges = false;
+            
+            if (data.redirect_to_confirmation) {
+              this.currentStep = 2;
+            }
+            
+            this.$q.notify({
+              type: 'positive',
+              message: data.message
+            });
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to save sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.submitting = false;
+        }
+      },
+
+      async confirmSale() {
+        if (!this.createdSale) {
+          this.$q.notify({
+            type: 'negative',
+            message: 'Please save the sale first'
+          });
+          return;
+        }
+
+        if (this.confirming) return;
+
+        this.confirming = true;
+        try {
+          const response = await fetch(`/aruna_solar/api/v1/sales/${this.createdSale.id}/confirm`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+            }
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            this.saleConfirmed = true;
+            this.currentStep = 3;
+            this.$q.notify({
+              type: 'positive',
+              message: data.message,
+              timeout: 4000
+            });
+          } else {
+            throw new Error(data.errors?.join(', ') || 'Failed to confirm sale');
+          }
+        } catch (error) {
+          this.$q.notify({
+            type: 'negative',
+            message: error.message
+          });
+        } finally {
+          this.confirming = false;
+        }
+      },
+
+      formatCurrency(amount) {
+        return new Intl.NumberFormat('en-IN').format(amount || 0);
+      },
+
+      goToPayments() {
+        if (this.createdSale) {
+          window.location.href = `/sales/${this.createdSale.id}/payment`;
+        }
+      },
+
+      viewSale() {
+        if (this.createdSale) {
+          window.location.href = `/sales/${this.createdSale.id}`;
+        }
+      },
+
+      goBack() {
+        if (this.hasUnsavedChanges && !this.saleConfirmed) {
+          this.$q.dialog({
+            title: 'Unsaved Changes',
+            message: 'You have unsaved changes. Are you sure you want to leave?',
+            cancel: true,
+            persistent: true
+          }).onOk(() => {
+            window.location.href = '/sales';
+          });
+        } else {
+          window.location.href = '/sales';
+        }
+      },
+
+      logout() {
+        fetch('/logout', {
+          method: 'DELETE',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
+          }
+        }).then(() => {
+          window.location.href = '/login';
+        });
+      }
+    },
+    watch: {
+      saleForm: {
+        handler(newVal, oldVal) {
+          if (oldVal && JSON.stringify(newVal) !== JSON.stringify(oldVal)) {
+            this.hasUnsavedChanges = true;
+          }
+        },
+        deep: true
+      }
+    }
+  }).use(Quasar);
+  
+  app.mount('#app');
+});
+</script>
