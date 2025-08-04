@@ -347,7 +347,6 @@ DEPENDENCIES
   bootsnap
   brakeman
   capybara
-  cgi
   debug
   devise (~> 4.9)
   error_highlight (>= 0.4.0)
