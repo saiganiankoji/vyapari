@@ -48,9 +48,6 @@ class Api::V1::UserController < ApplicationController
     # Send SMS notification
     sms_result = SmsService.send_temp_password(params[:mobile_number], temp_password)
     
-    # Log temp password for staging testing
-    Rails.logger.info "STAGING: Temp password for #{params[:mobile_number]} is: #{temp_password}"
-    
     render json: { 
       message: "Verification code sent to #{params[:mobile_number]}", 
       data: { 
