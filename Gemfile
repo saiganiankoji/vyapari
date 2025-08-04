@@ -72,3 +72,4 @@ gem 'kaminari' # For pagination (if needed)
 # Dev tools (optional but recommended)
 gem 'annotate' # For schema annotations
 gem 'rubocop-rails' # For code style
+gem 'httparty'

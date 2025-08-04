@@ -37,23 +37,29 @@ class Api::V1::UserController < ApplicationController
         data: { is_user_verified: user.verified }, 
         errors: []
       }, status: :ok
-    else
-      temp_password = generate_temp_password
-      user = User.create!(
-        mobile_number: params[:mobile_number],
-        password: temp_password,
-        verified: false
-      )
-      
-      # Here you would send SMS with temp_password in real implementation
-      # For now, we'll just return it in response (remove this in production)
-      Rails.logger.info "STAGING: Temp password for #{params[:mobile_number]} is: #{temp_password}"
-      render json: { 
-        message: "User created with temporary password", 
-        data: { is_user_verified: false }, 
-        errors: [] 
-      }, status: :created
-    end
+   else
+    temp_password = generate_temp_password
+    user = User.create!(
+      mobile_number: params[:mobile_number],
+      password: temp_password,
+      verified: false
+    )
+    
+    # Send SMS notification
+    sms_result = SmsService.send_temp_password(params[:mobile_number], temp_password)
+    
+    # Log temp password for staging testing
+    Rails.logger.info "STAGING: Temp password for #{params[:mobile_number]} is: #{temp_password}"
+    
+    render json: { 
+      message: "Verification code sent to #{params[:mobile_number]}", 
+      data: { 
+        is_user_verified: false,
+        temp_password: Rails.env.staging? ? temp_password : nil
+      }, 
+      errors: [] 
+    }
+  end
   rescue ActiveRecord::RecordInvalid => e
     render json: { error: e.message, errors: [e.message] }, status: :unprocessable_entity
   end
