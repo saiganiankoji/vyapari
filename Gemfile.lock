@@ -104,7 +104,7 @@ GEM
       xpath (~> 3.2)
     case_transform (0.2)
       activesupport
-    cgi (0.3.6)
+    cgi (0.5.0)
     concurrent-ruby (1.3.5)
     connection_pool (2.5.3)
     crass (1.0.6)
@@ -345,7 +345,7 @@ DEPENDENCIES
   bootsnap
   brakeman
   capybara
-  cgi (= 0.3.6)
+  cgi
   debug
   devise (~> 4.9)
   error_highlight (>= 0.4.0)
